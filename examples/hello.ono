@@ -1,0 +1,7 @@
+print "hello world!";
+
+let a = 1 + 2;
+let b = true;
+
+let c = a + b;
+
