@@ -27,9 +27,9 @@ pub enum TokenKind {
     LESSEQUAL,
 
     // Literals
-    IDENTIFIER,
-    STRING,
-    NUMBER,
+    IDENTIFIER(String),
+    STRING(String),
+    NUMBER(f64),
 
     // KEYWORDS
     AND,
@@ -72,6 +72,28 @@ pub struct Lexer<'a> {
     column: usize,
 }
 
+fn identifier_token_kind(c: &str) -> TokenKind {
+    match c {
+        "and" => TokenKind::AND,
+        "class" => TokenKind::CLASS,
+        "else" => TokenKind::ELSE,
+        "false" => TokenKind::FALSE,
+        "for" => TokenKind::FOR,
+        "fun" => TokenKind::FUN,
+        "if" => TokenKind::IF,
+        "null" => TokenKind::NULL,
+        "or" => TokenKind::OR,
+        "print" => TokenKind::PRINT,
+        "return" => TokenKind::RETURN,
+        "super" => TokenKind::SUPER,
+        "self" => TokenKind::SELF,
+        "true" => TokenKind::TRUE,
+        "let" => TokenKind::LET,
+        "while" => TokenKind::WHILE,
+        s => TokenKind::IDENTIFIER(s.to_string()),
+    }
+}
+
 impl<'a> ErrorReporter for Lexer<'a> {
     fn add(&mut self, error: Error) {
         self.errors.push(error);
@@ -80,6 +102,21 @@ impl<'a> ErrorReporter for Lexer<'a> {
     fn get_errors(&self) -> &Vec<Error> {
         &self.errors
     }
+}
+
+fn is_digit(c: &str) -> bool {
+    match c {
+        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => true,
+        _ => false,
+    }
+}
+
+fn is_alpha(c: &str) -> bool {
+    (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c == "_"
+}
+
+fn is_alpha_numeric(c: &str) -> bool {
+    is_digit(c) || is_alpha(c)
 }
 
 impl<'a> Lexer<'a> {
@@ -103,10 +140,11 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn add_token(&mut self, lexeme: String, kind: TokenKind) {
+    fn add_token(&mut self, kind: TokenKind) {
+        let lexeme = self.graphemes[self.start..self.current].join("");
         self.tokens.push(Token {
             kind,
-            lexeme: lexeme.to_string(),
+            lexeme,
             row: self.line,
             column: self.column,
         });
@@ -154,50 +192,60 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek(&self) -> String {
+        if self.current >= self.graphemes.len() {
+            return "\0".to_string();
+        }
         self.graphemes[self.current].to_string()
+    }
+
+    fn peekpeek(&self) -> String {
+        if self.current + 1 >= self.graphemes.len() {
+            return "\0".to_string();
+        }
+        self.graphemes[self.current + 1].to_string()
     }
 
     fn scan_token(&mut self) {
         let c = self.advance();
 
         match c.as_str() {
-            "(" => self.add_token(c, TokenKind::LEFTPAREN),
-            ")" => self.add_token(c, TokenKind::RIGHTPAREN),
-            "{" => self.add_token(c, TokenKind::LEFTBRACE),
-            "}" => self.add_token(c, TokenKind::RIGHTBRACE),
-            "," => self.add_token(c, TokenKind::COMMA),
-            "." => self.add_token(c, TokenKind::DOT),
-            "-" => self.add_token(c, TokenKind::MINUS),
-            "+" => self.add_token(c, TokenKind::PLUS),
-            ";" => self.add_token(c, TokenKind::SEMICOLON),
-            "*" => self.add_token(c, TokenKind::STAR),
-            "/" => self.add_token(c, TokenKind::SLASH),
+            "(" => self.add_token(TokenKind::LEFTPAREN),
+            ")" => self.add_token(TokenKind::RIGHTPAREN),
+            "{" => self.add_token(TokenKind::LEFTBRACE),
+            "}" => self.add_token(TokenKind::RIGHTBRACE),
+            "," => self.add_token(TokenKind::COMMA),
+            "." => self.add_token(TokenKind::DOT),
+            "-" => self.add_token(TokenKind::MINUS),
+            "+" => self.add_token(TokenKind::PLUS),
+            ";" => self.add_token(TokenKind::SEMICOLON),
+            "*" => self.add_token(TokenKind::STAR),
+            "/" => self.add_token(TokenKind::SLASH),
             "!" => {
                 if self.is_next("=") {
-                    self.add_token(c, TokenKind::BANGEQUAL);
+                    self.add_token(TokenKind::BANGEQUAL);
                 } else {
-                    self.add_token(c, TokenKind::BANG);
+                    self.add_token(TokenKind::BANG);
                 }
             }
             "=" => {
                 if self.is_next("=") {
-                    self.add_token(c, TokenKind::EQUALEQUAL);
+                    self.add_token(TokenKind::EQUALEQUAL);
                 } else {
-                    self.add_token(c, TokenKind::EQUAL);
+                    self.add_token(TokenKind::EQUAL);
                 }
             }
             "<" => {
                 if self.is_next("=") {
-                    self.add_token(c, TokenKind::LESSEQUAL);
+                    self.add_token(TokenKind::LESSEQUAL);
                 } else {
-                    self.add_token(c, TokenKind::EQUAL);
+                    self.add_token(TokenKind::LESS);
                 }
             }
             ">" => {
                 if self.is_next("=") {
-                    self.add_token(c, TokenKind::GREATEREQUAL);
+                    self.add_token(TokenKind::GREATEREQUAL);
                 } else {
-                    self.add_token(c, TokenKind::EQUAL);
+                    self.add_token(TokenKind::GREATER);
                 }
             }
 
@@ -208,10 +256,59 @@ impl<'a> Lexer<'a> {
                 }
             },
 
+            "\"" => self.string(),
+            s if is_digit(s) => self.number(),
+            s if is_alpha(s) => self.identifier(),
+
             // Ignore whitespace
             "\n" | " " | "\t" => {}
 
             _ => self.add_error(&format!("Unexpected character '{}'", c)),
         }
+    }
+
+    fn string(&mut self) {
+        while self.peek() != "\"" && !self.is_at_end() {
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            self.add_error("Unterminated string");
+            return;
+        }
+
+        // Eat up the closing "
+        self.advance();
+
+        let value = self.graphemes[(self.start + 1)..(self.current - 1)].join("");
+        self.add_token(TokenKind::STRING(value))
+    }
+
+    fn number(&mut self) {
+        // Read all digits
+        while is_digit(&self.peek()) {
+            self.advance();
+        }
+
+        // Read optional fraction too
+        if self.peek() == "." && is_digit(&self.peekpeek()) {
+            self.advance();
+
+            while is_digit(&self.peek()) {
+                self.advance();
+            }
+        }
+
+        let value = self.graphemes[(self.start)..(self.current)].join("");
+        self.add_token(TokenKind::NUMBER(value.parse::<f64>().unwrap()))
+    }
+
+    fn identifier(&mut self) {
+        while is_alpha_numeric(&self.peek()) {
+            self.advance();
+        }
+
+        let lexeme = self.graphemes[(self.start)..(self.current)].join("");
+        self.add_token(identifier_token_kind(&lexeme))
     }
 }
