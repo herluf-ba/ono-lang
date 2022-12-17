@@ -6,37 +6,12 @@ use std::path::Path;
 mod ast;
 mod error;
 mod lexer;
+mod parser;
 
 use error::*;
+use parser::AstBuilder;
 
 fn main() {
-    //let top = Expr::Binary {
-    //operator: Token {
-    //kind: TokenKind::PLUS,
-    //lexeme: "+".to_string(),
-    //row: 0,
-    //column: 1,
-    //},
-    //left: Box::new(Expr::Literal {
-    //value: Token {
-    //kind: TokenKind::NUMBER(1.0),
-    //lexeme: "1".to_string(),
-    //row: 0,
-    //column: 0,
-    //},
-    //}),
-    //right: Box::new(Expr::Literal {
-    //value: Token {
-    //kind: TokenKind::NUMBER(2.0),
-    //lexeme: "2".to_string(),
-    //row: 0,
-    //column: 2,
-    //},
-    //}),
-    //};
-    //println!("{:#?}", top);
-    //return;
-
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 2 {
@@ -103,6 +78,17 @@ fn run(src: &str) -> Result<()> {
         lexer.report_errors();
         return Err(());
     }
+
+    let mut ast_builder = AstBuilder::from(&lexer);
+    let ast = match ast_builder.build() {
+        Some(ast) => ast,
+        None => {
+            ast_builder.report_errors();
+            return Err(());
+        }
+    };
+
+    println!("{}", ast);
 
     Ok(())
 }

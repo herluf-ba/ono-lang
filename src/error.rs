@@ -3,8 +3,6 @@ use std::fmt;
 #[derive(Debug)]
 pub enum ErrorKind {
     SyntaxError,
-    TypeError,
-    Error,
 }
 
 // Standard ono error type
@@ -62,7 +60,7 @@ impl fmt::Display for Error {
 }
 
 pub trait ErrorReporter {
-    fn add(&mut self, error: Error);
+    fn add_error(&mut self, error: Error);
 
     fn get_errors(&self) -> &Vec<Error>;
 

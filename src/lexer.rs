@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::error::*;
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum TokenKind {
     // Single-character tokens
     LEFTPAREN,
@@ -28,7 +28,7 @@ pub enum TokenKind {
     LESS,
     LESSEQUAL,
 
-    // Literals
+    // Literals()
     IDENTIFIER(String),
     STRING(String),
     NUMBER(f64),
@@ -55,7 +55,14 @@ pub enum TokenKind {
     EOF,
 }
 
-#[derive(Debug)]
+impl TokenKind {
+    pub fn is_same(&self, other: &TokenKind) -> bool {
+        //Compare only by variant
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub lexeme: String,
@@ -71,9 +78,9 @@ impl Display for Token {
 
 pub struct Lexer<'a> {
     pub tokens: Vec<Token>,
+    pub lines: Vec<&'a str>,
     pub errors: Vec<Error>,
     graphemes: Vec<&'a str>,
-    lines: Vec<&'a str>,
     start: usize,
     current: usize,
     line: usize,
@@ -103,7 +110,7 @@ fn identifier_token_kind(c: &str) -> TokenKind {
 }
 
 impl<'a> ErrorReporter for Lexer<'a> {
-    fn add(&mut self, error: Error) {
+    fn add_error(&mut self, error: Error) {
         self.errors.push(error);
     }
 
@@ -114,7 +121,7 @@ impl<'a> ErrorReporter for Lexer<'a> {
 
 fn is_digit(c: &str) -> bool {
     match c {
-        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => true,
+        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => true,
         _ => false,
     }
 }
@@ -159,7 +166,7 @@ impl<'a> Lexer<'a> {
         });
     }
 
-    fn add_error(&mut self, message: &str) {
+    fn add_syntax_error(&mut self, message: &str) {
         self.errors.push(Error::new(
             ErrorKind::SyntaxError,
             Some(self.line + 1),
@@ -272,7 +279,7 @@ impl<'a> Lexer<'a> {
             // Ignore whitespace
             "\n" | " " | "\t" => {}
 
-            _ => self.add_error(&format!("Unexpected character '{}'", c)),
+            _ => self.add_syntax_error(&format!("Unexpected character '{}'", c)),
         }
     }
 
@@ -282,7 +289,7 @@ impl<'a> Lexer<'a> {
         }
 
         if self.is_at_end() {
-            self.add_error("Unterminated string");
+            self.add_syntax_error("Unterminated string");
             return;
         }
 
