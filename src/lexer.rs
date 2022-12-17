@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::error::*;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -59,6 +61,12 @@ pub struct Token {
     pub lexeme: String,
     pub row: usize,
     pub column: usize,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.lexeme)
+    }
 }
 
 pub struct Lexer<'a> {
@@ -138,6 +146,7 @@ impl<'a> Lexer<'a> {
             self.start = self.current;
             self.scan_token();
         }
+        self.add_token(TokenKind::EOF);
     }
 
     fn add_token(&mut self, kind: TokenKind) {

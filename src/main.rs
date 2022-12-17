@@ -3,12 +3,40 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+mod ast;
 mod error;
 mod lexer;
 
 use error::*;
 
 fn main() {
+    //let top = Expr::Binary {
+    //operator: Token {
+    //kind: TokenKind::PLUS,
+    //lexeme: "+".to_string(),
+    //row: 0,
+    //column: 1,
+    //},
+    //left: Box::new(Expr::Literal {
+    //value: Token {
+    //kind: TokenKind::NUMBER(1.0),
+    //lexeme: "1".to_string(),
+    //row: 0,
+    //column: 0,
+    //},
+    //}),
+    //right: Box::new(Expr::Literal {
+    //value: Token {
+    //kind: TokenKind::NUMBER(2.0),
+    //lexeme: "2".to_string(),
+    //row: 0,
+    //column: 2,
+    //},
+    //}),
+    //};
+    //println!("{:#?}", top);
+    //return;
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 2 {
@@ -71,7 +99,6 @@ fn run(src: &str) -> Result<()> {
     let mut lexer = lexer::Lexer::new(src);
     lexer.tokenize();
 
-    println!("{:#?}", lexer.tokens);
     if !lexer.is_ok() {
         lexer.report_errors();
         return Err(());
