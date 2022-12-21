@@ -4,7 +4,6 @@ use crate::lexer::Token;
 
 #[derive(Debug)]
 pub enum Expr {
-    Error, // A special expresion marking a parse error
     Literal {
         value: Token,
     },
@@ -31,7 +30,6 @@ pub struct ExprPrinter;
 impl ExprVisitor<String> for ExprPrinter {
     fn visit(&mut self, e: &Expr) -> String {
         match e {
-            Expr::Error => "Error".to_string(),
             Expr::Literal { value } => format!("{}", value),
             Expr::Unary { operator, expr } => {
                 format!("({} {})", operator, self.visit(expr.as_ref()))

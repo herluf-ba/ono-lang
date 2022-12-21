@@ -1,8 +1,11 @@
 use std::fmt;
 
+use crate::lexer::Token;
+
 #[derive(Debug)]
 pub enum ErrorKind {
     SyntaxError,
+    RuntimeError,
 }
 
 // Standard ono error type
@@ -59,20 +62,48 @@ impl fmt::Display for Error {
     }
 }
 
-pub trait ErrorReporter {
-    fn add_error(&mut self, error: Error);
-
+pub trait ErrorCollector {
     fn get_errors(&self) -> &Vec<Error>;
+
+    fn has_errors(&self) -> bool {
+        self.get_errors().len() > 0
+    }
 
     fn report_errors(&self) {
         for error in self.get_errors() {
             println!("{}", error);
         }
     }
-
-    fn is_ok(&self) -> bool {
-        self.get_errors().len() == 0
-    }
 }
 
-pub type Result<T> = std::result::Result<T, ()>;
+pub struct ErrorProducer<'a> {
+    src_lines: Vec<&'a str>,
+}
+
+impl<'a> ErrorProducer<'a> {
+    pub fn new(src: &'a str) -> Self {
+        Self {
+            src_lines: src.split("\n").collect::<Vec<&'a str>>(),
+        }
+    }
+
+    pub fn syntax_error_from_token(&self, token: &Token, message: &str) -> Error {
+        Error::new(
+            ErrorKind::SyntaxError,
+            Some(token.row),
+            Some(token.column),
+            self.src_lines[token.row],
+            message,
+        )
+    }
+
+    pub fn runtime_error_from_token(&self, token: &Token, message: &str) -> Error {
+        Error::new(
+            ErrorKind::RuntimeError,
+            Some(token.row),
+            Some(token.column),
+            self.src_lines[token.row],
+            message,
+        )
+    }
+}

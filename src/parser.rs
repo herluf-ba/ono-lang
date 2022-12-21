@@ -1,58 +1,35 @@
 use crate::ast::*;
-use crate::error::{Error, ErrorKind, ErrorReporter};
-use crate::lexer::{Lexer, Token, TokenKind};
+use crate::error::{Error, ErrorCollector, ErrorProducer};
+use crate::lexer::{Token, TokenKind};
 
-pub struct AstBuilder<'a> {
-    lexer: &'a Lexer<'a>,
-    errors: Vec<Error>,
+pub struct Parser<'a> {
+    pub errors: Vec<Error>,
+    error_producer: &'a ErrorProducer<'a>,
+    tokens: Vec<Token>,
     current: usize,
 }
 
-impl<'a> ErrorReporter for AstBuilder<'a> {
-    fn add_error(&mut self, error: Error) {
-        self.errors.push(error)
-    }
-
-    fn get_errors(&self) -> &Vec<Error> {
-        &self.errors
-    }
-}
-
-// A recursive descent parser that takes a lexer and produces an AST
-impl<'a> AstBuilder<'a> {
-    pub fn from(lexer: &'a Lexer) -> Self {
+// A recursive descent parser that produces an AST
+impl<'a> Parser<'a> {
+    pub fn from(tokens: Vec<Token>, error_producer: &'a ErrorProducer<'a>) -> Self {
         Self {
-            lexer,
             errors: Vec::new(),
+            tokens,
+            error_producer,
             current: 0,
         }
     }
 
-    pub fn build(&mut self) -> Option<Expr> {
-        let ast = self.expression();
-        if self.is_ok() {
-            return Some(ast);
-        }
-        None
-    }
-
-    fn add_syntax_error(&mut self, message: &str) {
-        let token = self.peek();
-        self.errors.push(Error::new(
-            ErrorKind::SyntaxError,
-            Some(token.row),
-            Some(token.column),
-            self.lexer.lines[token.row],
-            message,
-        ))
+    pub fn parse(&mut self) -> Option<Expr> {
+        Some(self.expression())
     }
 
     fn previous(&self) -> &Token {
-        self.lexer.tokens.get(self.current - 1).unwrap()
+        self.tokens.get(self.current - 1).unwrap()
     }
 
     fn peek(&self) -> &Token {
-        self.lexer.tokens.get(self.current).unwrap()
+        self.tokens.get(self.current).unwrap()
     }
 
     fn advance(&mut self) -> &Token {
@@ -178,7 +155,10 @@ impl<'a> AstBuilder<'a> {
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
             let expr = self.expression();
             if self.consume(&TokenKind::RIGHTPAREN).is_none() {
-                self.add_syntax_error("Expected closing ')'");
+                self.errors.push(
+                    self.error_producer
+                        .syntax_error_from_token(self.previous(), "Expected closing ')'"),
+                );
             }
 
             return Expr::Group {
@@ -186,8 +166,18 @@ impl<'a> AstBuilder<'a> {
             };
         }
 
-        self.add_syntax_error("Expected expression");
+        self.errors.push(
+            self.error_producer
+                .syntax_error_from_token(self.previous(), "Expected expression"),
+        );
 
-        Expr::Error {}
+        // TODO: Is it ok to panic here? I dont think so
+        panic!("Parser matching bottomed out. This is an ono implementation error")
+    }
+}
+
+impl<'a> ErrorCollector for Parser<'a> {
+    fn get_errors(&self) -> &Vec<Error> {
+        &self.errors
     }
 }

@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
-use crate::error::*;
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::error::{Error, ErrorCollector, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum TokenKind {
@@ -76,17 +77,6 @@ impl Display for Token {
     }
 }
 
-pub struct Lexer<'a> {
-    pub tokens: Vec<Token>,
-    pub lines: Vec<&'a str>,
-    pub errors: Vec<Error>,
-    graphemes: Vec<&'a str>,
-    start: usize,
-    current: usize,
-    line: usize,
-    column: usize,
-}
-
 fn identifier_token_kind(c: &str) -> TokenKind {
     match c {
         "and" => TokenKind::AND,
@@ -109,16 +99,6 @@ fn identifier_token_kind(c: &str) -> TokenKind {
     }
 }
 
-impl<'a> ErrorReporter for Lexer<'a> {
-    fn add_error(&mut self, error: Error) {
-        self.errors.push(error);
-    }
-
-    fn get_errors(&self) -> &Vec<Error> {
-        &self.errors
-    }
-}
-
 fn is_digit(c: &str) -> bool {
     match c {
         "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => true,
@@ -132,6 +112,17 @@ fn is_alpha(c: &str) -> bool {
 
 fn is_alpha_numeric(c: &str) -> bool {
     is_digit(c) || is_alpha(c)
+}
+
+pub struct Lexer<'a> {
+    pub tokens: Vec<Token>,
+    pub lines: Vec<&'a str>,
+    pub errors: Vec<Error>,
+    graphemes: Vec<&'a str>,
+    start: usize,
+    current: usize,
+    line: usize,
+    column: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -148,12 +139,13 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) {
+    pub fn tokenize(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
         }
         self.add_token(TokenKind::EOF);
+        self.tokens.clone()
     }
 
     fn add_token(&mut self, kind: TokenKind) {
@@ -164,16 +156,6 @@ impl<'a> Lexer<'a> {
             row: self.line,
             column: self.column,
         });
-    }
-
-    fn add_syntax_error(&mut self, message: &str) {
-        self.errors.push(Error::new(
-            ErrorKind::SyntaxError,
-            Some(self.line + 1),
-            Some(self.column),
-            self.lines[self.line],
-            message,
-        ))
     }
 
     fn is_at_end(&self) -> bool {
@@ -279,7 +261,13 @@ impl<'a> Lexer<'a> {
             // Ignore whitespace
             "\n" | " " | "\t" => {}
 
-            _ => self.add_syntax_error(&format!("Unexpected character '{}'", c)),
+            _ => self.errors.push(Error {
+                kind: ErrorKind::SyntaxError,
+                row: Some(self.line),
+                column: Some(self.column),
+                line_src: self.lines[self.line].to_string(),
+                message: format!("Unexpected character '{}'", c),
+            }),
         }
     }
 
@@ -289,7 +277,13 @@ impl<'a> Lexer<'a> {
         }
 
         if self.is_at_end() {
-            self.add_syntax_error("Unterminated string");
+            self.errors.push(Error {
+                kind: ErrorKind::SyntaxError,
+                row: Some(self.line),
+                column: Some(self.column),
+                line_src: self.lines[self.line].to_string(),
+                message: "Unterminated string".to_string(),
+            });
             return;
         }
 
@@ -326,5 +320,11 @@ impl<'a> Lexer<'a> {
 
         let lexeme = self.graphemes[(self.start)..(self.current)].join("");
         self.add_token(identifier_token_kind(&lexeme))
+    }
+}
+
+impl<'a> ErrorCollector for Lexer<'a> {
+    fn get_errors(&self) -> &Vec<Error> {
+        &self.errors
     }
 }

@@ -5,11 +5,13 @@ use std::path::Path;
 
 mod ast;
 mod error;
+mod interpreter;
 mod lexer;
 mod parser;
 
 use error::*;
-use parser::AstBuilder;
+use interpreter::{Interpreter, Value};
+use parser::Parser;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -19,16 +21,13 @@ fn main() {
     }
 
     if args.len() == 2 {
-        match run_file(&args[1]) {
-            Err(_) => panic!(""),
-            Ok(_) => return,
-        }
+        run_file(&args[1]);
+    } else {
+        run_prompt();
     }
-
-    run_prompt();
 }
 
-fn run_file(filename: &String) -> Result<()> {
+fn run_file(filename: &String) {
     let path = Path::new(filename);
 
     let mut file = match File::open(&path) {
@@ -42,7 +41,11 @@ fn run_file(filename: &String) -> Result<()> {
         Ok(_) => {}
     };
 
-    run(&src)
+    let mut interpreter = Interpreter {};
+    match run(&mut interpreter, &src) {
+        Ok(_) => {}
+        Err(_) => {} // TODO: Exit with some code
+    };
 }
 
 fn prompt_user() {
@@ -51,6 +54,7 @@ fn prompt_user() {
 }
 
 fn run_prompt() {
+    let mut interpreter = Interpreter {};
     prompt_user();
     for line in std::io::stdin().lines() {
         let text = match line {
@@ -60,9 +64,9 @@ fn run_prompt() {
 
         match text.as_str() {
             "exit" => return (),
-            _ => match run(&text) {
+            _ => match run(&mut interpreter, &text) {
                 Err(_) => {}
-                Ok(_) => {}
+                Ok(val) => println!("{}", val),
             },
         }
 
@@ -70,25 +74,33 @@ fn run_prompt() {
     }
 }
 
-fn run(src: &str) -> Result<()> {
-    let mut lexer = lexer::Lexer::new(src);
-    lexer.tokenize();
+fn run(interpreter: &mut Interpreter, src: &str) -> Result<Value, ()> {
+    let error_producer = ErrorProducer::new(src);
 
-    if !lexer.is_ok() {
+    let mut lexer = lexer::Lexer::new(src);
+    let tokens = lexer.tokenize();
+    if lexer.has_errors() {
         lexer.report_errors();
         return Err(());
     }
 
-    let mut ast_builder = AstBuilder::from(&lexer);
-    let ast = match ast_builder.build() {
+    let mut parser = Parser::from(tokens, &error_producer);
+    let ast = match parser.parse() {
         Some(ast) => ast,
         None => {
-            ast_builder.report_errors();
+            parser.report_errors();
             return Err(());
         }
     };
 
-    println!("{}", ast);
-
-    Ok(())
+    match interpreter.interpret(&ast) {
+        Value::Error { message, token } => {
+            println!(
+                "{}",
+                error_producer.runtime_error_from_token(&token, &message)
+            );
+            Err(())
+        }
+        val => Ok(val),
+    }
 }
