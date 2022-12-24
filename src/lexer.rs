@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::error::{Error, ErrorCollector, ErrorKind};
+use crate::error::{Error, ErrorKind};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum TokenKind {
@@ -114,24 +114,20 @@ fn is_alpha_numeric(c: &str) -> bool {
     is_digit(c) || is_alpha(c)
 }
 
-pub struct Lexer<'a> {
+pub struct Lexer {
     pub tokens: Vec<Token>,
-    pub lines: Vec<&'a str>,
-    pub errors: Vec<Error>,
-    graphemes: Vec<&'a str>,
+    graphemes: Vec<String>,
     start: usize,
     current: usize,
     line: usize,
     column: usize,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(src: &'a str) -> Self {
+impl Lexer {
+    pub fn new() -> Self {
         Self {
-            graphemes: UnicodeSegmentation::graphemes(src, true).collect::<Vec<&'a str>>(),
             tokens: Vec::new(),
-            errors: Vec::new(),
-            lines: src.split("\n").collect::<Vec<&'a str>>(),
+            graphemes: Vec::new(),
             start: 0,
             current: 0,
             line: 0,
@@ -139,13 +135,26 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self, src: &str) -> Result<Vec<Token>, Vec<Error>> {
+        let mut errors: Vec<Error> = Vec::new();
+        self.graphemes = UnicodeSegmentation::graphemes(src, true)
+            .map(String::from)
+            .collect::<Vec<String>>();
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token();
+            if let Err(error) = self.scan_token() {
+                errors.push(error);
+            }
         }
         self.add_token(TokenKind::EOF);
-        self.tokens.clone()
+        let tokens = self.tokens.clone();
+        self.tokens.clear();
+        self.graphemes.clear();
+        if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(tokens)
+        }
     }
 
     fn add_token(&mut self, kind: TokenKind) {
@@ -203,7 +212,7 @@ impl<'a> Lexer<'a> {
         self.graphemes[self.current + 1].to_string()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<(), Error> {
         let c = self.advance();
 
         match c.as_str() {
@@ -254,44 +263,51 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            "\"" => self.string(),
+            "\"" => {
+                if let Err(error) = self.string() {
+                    return Err(error);
+                }
+            }
             s if is_digit(s) => self.number(),
             s if is_alpha(s) => self.identifier(),
 
             // Ignore whitespace
             "\n" | " " | "\t" => {}
 
-            _ => self.errors.push(Error {
-                kind: ErrorKind::SyntaxError,
-                row: Some(self.line),
-                column: Some(self.column),
-                line_src: self.lines[self.line].to_string(),
-                message: format!("Unexpected character '{}'", c),
-            }),
-        }
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::SyntaxError,
+                    Some(self.line),
+                    Some(self.column),
+                    None,
+                    &format!("Unexpected character '{}'", c),
+                ))
+            }
+        };
+        Ok(())
     }
 
-    fn string(&mut self) {
+    fn string(&mut self) -> Result<(), Error> {
         while self.peek() != "\"" && !self.is_at_end() {
             self.advance();
         }
 
         if self.is_at_end() {
-            self.errors.push(Error {
-                kind: ErrorKind::SyntaxError,
-                row: Some(self.line),
-                column: Some(self.column),
-                line_src: self.lines[self.line].to_string(),
-                message: "Unterminated string".to_string(),
-            });
-            return;
+            return Err(Error::new(
+                ErrorKind::SyntaxError,
+                Some(self.line),
+                Some(self.column),
+                None,
+                "Unterminated string",
+            ));
         }
 
         // Eat up the closing "
         self.advance();
 
         let value = self.graphemes[(self.start + 1)..(self.current - 1)].join("");
-        self.add_token(TokenKind::STRING(value))
+        self.add_token(TokenKind::STRING(value));
+        Ok(())
     }
 
     fn number(&mut self) {
@@ -320,11 +336,5 @@ impl<'a> Lexer<'a> {
 
         let lexeme = self.graphemes[(self.start)..(self.current)].join("");
         self.add_token(identifier_token_kind(&lexeme))
-    }
-}
-
-impl<'a> ErrorCollector for Lexer<'a> {
-    fn get_errors(&self) -> &Vec<Error> {
-        &self.errors
     }
 }

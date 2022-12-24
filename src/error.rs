@@ -15,7 +15,7 @@ pub struct Error {
     pub kind: ErrorKind,
     pub row: Option<usize>,
     pub column: Option<usize>,
-    pub line_src: String,
+    pub line_src: Option<String>,
     pub message: String,
 }
 
@@ -24,16 +24,34 @@ impl Error {
         kind: ErrorKind,
         row: Option<usize>,
         column: Option<usize>,
-        line_src: &str,
+        line_src: Option<&str>,
         message: &str,
     ) -> Self {
         Self {
             kind,
             column,
             row,
-            line_src: line_src.to_string(),
             message: message.to_string(),
+            line_src: if let Some(line_src) = line_src {
+                Some(line_src.to_string())
+            } else {
+                None
+            },
         }
+    }
+
+    pub fn from_token(token: &Token, kind: ErrorKind, message: &str) -> Self {
+        Self {
+            kind,
+            column: Some(token.column),
+            row: Some(token.row),
+            message: message.to_string(),
+            line_src: None,
+        }
+    }
+
+    pub fn add_src(&mut self, line_src: &str) {
+        self.line_src = Some(line_src.to_string())
     }
 }
 
@@ -54,56 +72,15 @@ impl fmt::Display for Error {
             None => String::new(),
         };
 
+        let line_src = match &self.line_src {
+            Some(line_src) => line_src,
+            None => "",
+        };
+
         write!(
             f,
-            "{:#?}: {}\n\n{}{}{}",
-            self.kind, self.message, row_str, self.line_src, column_indicator
-        )
-    }
-}
-
-pub trait ErrorCollector {
-    fn get_errors(&self) -> &Vec<Error>;
-
-    fn has_errors(&self) -> bool {
-        self.get_errors().len() > 0
-    }
-
-    fn report_errors(&self) {
-        for error in self.get_errors() {
-            println!("{}", error);
-        }
-    }
-}
-
-pub struct ErrorProducer<'a> {
-    src_lines: Vec<&'a str>,
-}
-
-impl<'a> ErrorProducer<'a> {
-    pub fn new(src: &'a str) -> Self {
-        Self {
-            src_lines: src.split("\n").collect::<Vec<&'a str>>(),
-        }
-    }
-
-    pub fn syntax_error_from_token(&self, token: &Token, message: &str) -> Error {
-        Error::new(
-            ErrorKind::SyntaxError,
-            Some(token.row),
-            Some(token.column),
-            self.src_lines[token.row],
-            message,
-        )
-    }
-
-    pub fn runtime_error_from_token(&self, token: &Token, message: &str) -> Error {
-        Error::new(
-            ErrorKind::RuntimeError,
-            Some(token.row),
-            Some(token.column),
-            self.src_lines[token.row],
-            message,
+            "{:#?}: {}\n{}{}{}\n",
+            self.kind, self.message, row_str, line_src, column_indicator
         )
     }
 }
