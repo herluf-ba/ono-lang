@@ -288,6 +288,9 @@ impl Lexer {
     }
 
     fn string(&mut self) -> Result<(), Error> {
+        let opening_row = self.line;
+        let opening_column = self.column;
+
         while self.peek() != "\"" && !self.is_at_end() {
             self.advance();
         }
@@ -295,10 +298,10 @@ impl Lexer {
         if self.is_at_end() {
             return Err(Error::new(
                 ErrorKind::SyntaxError,
-                Some(self.line),
-                Some(self.column),
+                Some(opening_row),
+                Some(opening_column),
                 None,
-                "Unterminated string",
+                "Unterminated string starting here",
             ));
         }
 

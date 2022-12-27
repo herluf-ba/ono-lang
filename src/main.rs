@@ -52,14 +52,13 @@ impl Program {
 
         println!("{:#?}", ast);
 
-        // TODO: Parse
-
         // TODO: Interpret
 
         Ok(Value::Null)
     }
 
     fn report_error(&self, error: &mut Error) {
+        // TODO: Test error output here
         if let Some(row) = error.row {
             error.add_src(&self.lines[row]);
         }

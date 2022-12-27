@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::lexer::{Token, TokenKind};
 
 pub struct Parser {
@@ -71,15 +71,9 @@ impl Parser {
 
     // equality -> comparison ( ("!=" | "==") comparison )* ;
     fn equality(&mut self) -> Result<Expr, Error> {
-        let mut expr = match self.comparison() {
-            Ok(expr) => expr,
-            Err(error) => return Err(error),
-        };
+        let mut expr = self.comparison()?;
         while self.is_token_of_kind(&[TokenKind::BANGEQUAL, TokenKind::EQUALEQUAL]) {
-            let right = match self.comparison() {
-                Ok(expr) => expr,
-                Err(error) => return Err(error),
-            };
+            let right = self.comparison()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
                 right: Box::new(right),
@@ -91,20 +85,14 @@ impl Parser {
 
     // comparison -> term ( (">" | ">=" | "<" | "<=") term )* ;
     fn comparison(&mut self) -> Result<Expr, Error> {
-        let mut expr = match self.term() {
-            Ok(expr) => expr,
-            Err(error) => return Err(error),
-        };
+        let mut expr = self.term()?;
         while self.is_token_of_kind(&[
             TokenKind::LESS,
             TokenKind::LESSEQUAL,
             TokenKind::GREATER,
             TokenKind::GREATEREQUAL,
         ]) {
-            let right = match self.term() {
-                Ok(expr) => expr,
-                Err(error) => return Err(error),
-            };
+            let right = self.term()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
                 right: Box::new(right),
@@ -116,15 +104,9 @@ impl Parser {
 
     // term -> factor ( ("-" | "+") factor )* ;
     fn term(&mut self) -> Result<Expr, Error> {
-        let mut expr = match self.factor() {
-            Ok(expr) => expr,
-            Err(error) => return Err(error),
-        };
+        let mut expr = self.factor()?;
         while self.is_token_of_kind(&[TokenKind::MINUS, TokenKind::PLUS]) {
-            let right = match self.factor() {
-                Ok(expr) => expr,
-                Err(error) => return Err(error),
-            };
+            let right = self.factor()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
                 right: Box::new(right),
@@ -136,16 +118,10 @@ impl Parser {
 
     // factor -> unary ( ("/" | "*") unary )* ;
     fn factor(&mut self) -> Result<Expr, Error> {
-        let mut expr = match self.unary() {
-            Ok(expr) => expr,
-            Err(error) => return Err(error),
-        };
+        let mut expr = self.unary()?;
 
         while self.is_token_of_kind(&[TokenKind::SLASH, TokenKind::STAR]) {
-            let right = match self.unary() {
-                Ok(expr) => expr,
-                Err(error) => return Err(error),
-            };
+            let right = self.unary()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
                 right: Box::new(right),
@@ -158,10 +134,7 @@ impl Parser {
     // unary -> ("!" | "-") unary | primary ;
     fn unary(&mut self) -> Result<Expr, Error> {
         if self.is_token_of_kind(&[TokenKind::BANG, TokenKind::MINUS]) {
-            let inner = match self.unary() {
-                Ok(inner) => inner,
-                Err(error) => return Err(error),
-            };
+            let inner = self.unary()?;
             return Ok(Expr::Unary {
                 operator: self.previous().clone(),
                 expr: Box::new(inner),
@@ -185,26 +158,26 @@ impl Parser {
         }
 
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
-            let expr = match self.expression() {
-                Ok(expr) => expr,
-                Err(error) => return Err(error),
+            let opening_token = self.previous().clone();
+            let expr = self.expression()?;
+
+            return if self.consume(&TokenKind::RIGHTPAREN).is_none() {
+                Err(Error::from_token(
+                    &opening_token,
+                    ErrorKind::SyntaxError,
+                    "Expected ')' closing this",
+                ))
+            } else {
+                Ok(Expr::Group {
+                    expr: Box::new(expr),
+                })
             };
-
-            if self.consume(&TokenKind::RIGHTPAREN).is_none() {
-                //self.errors.push(
-                //self.error_producer
-                //.syntax_error_from_token(self.previous(), "Expected closing ')'"),
-                //);
-            }
-
-            return Ok(Expr::Group {
-                expr: Box::new(expr),
-            });
         }
-        //self.error_producer
-        //.syntax_error_from_token(self.previous(), "Expected expression"),
 
-        // TODO: return Err here
-        panic!("Parser matching bottomed out. This is an ono implementation error")
+        Err(Error::from_token(
+            self.previous(),
+            ErrorKind::SyntaxError,
+            "Expected expression",
+        ))
     }
 }

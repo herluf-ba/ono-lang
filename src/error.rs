@@ -58,7 +58,7 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let row_str = match self.row {
-            Some(row) => format!("{} | ", row),
+            Some(row) => format!("{} | ", row + 1),
             None => String::new(),
         };
 
