@@ -10,7 +10,7 @@ mod lexer;
 mod parser;
 
 use error::*;
-use interpreter::Value;
+use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
 
@@ -18,7 +18,7 @@ struct Program {
     lines: Vec<String>,
     lexer: Lexer,
     parser: Parser,
-    //interpreter: Interpreter,
+    interpreter: Interpreter,
 }
 
 impl Program {
@@ -27,13 +27,14 @@ impl Program {
             lines: Vec::new(),
             lexer: Lexer::new(),
             parser: Parser::new(),
-            //interpreter: Interpreter {},
+            interpreter: Interpreter::new(),
         }
     }
 
-    pub fn feed(&mut self, src: String) -> Result<Value, ()> {
+    pub fn feed(&mut self, src: String) -> Result<(), ()> {
         self.lines
             .extend(src.split('\n').map(String::from).collect::<Vec<String>>());
+
         let tokens = match self.lexer.tokenize(&src) {
             Ok(tokens) => tokens,
             Err(errors) => {
@@ -42,23 +43,24 @@ impl Program {
             }
         };
 
-        let ast = match self.parser.parse(tokens) {
-            Ok(ast) => ast,
+        let statements = match self.parser.parse(tokens) {
+            Ok(statements) => statements,
             Err(mut error) => {
                 self.report_error(&mut error);
                 return Err(());
             }
         };
 
-        println!("{:#?}", ast);
-
-        // TODO: Interpret
-
-        Ok(Value::Null)
+        match self.interpreter.interpret(statements) {
+            Ok(_) => Ok(()),
+            Err(mut error) => {
+                self.report_error(&mut error);
+                return Err(());
+            }
+        }
     }
 
     fn report_error(&self, error: &mut Error) {
-        // TODO: Test error output here
         if let Some(row) = error.row {
             error.add_src(&self.lines[row]);
         }
@@ -125,7 +127,7 @@ fn run_prompt(mut program: Program) {
             "exit" => return (),
             _ => match program.feed(text) {
                 Err(_) => {}
-                Ok(value) => println!("{}", value),
+                Ok(_) => println!("{}", "todo"),
             },
         }
 

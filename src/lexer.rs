@@ -135,6 +135,14 @@ impl Lexer {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.tokens = Vec::new();
+        self.graphemes = Vec::new();
+        self.current = 0;
+        self.start = 0;
+        self.column = 0;
+    }
+
     pub fn tokenize(&mut self, src: &str) -> Result<Vec<Token>, Vec<Error>> {
         let mut errors: Vec<Error> = Vec::new();
         self.graphemes = UnicodeSegmentation::graphemes(src, true)
@@ -148,8 +156,8 @@ impl Lexer {
         }
         self.add_token(TokenKind::EOF);
         let tokens = self.tokens.clone();
-        self.tokens.clear();
-        self.graphemes.clear();
+        self.reset();
+        self.line += 1;
         if errors.len() > 0 {
             Err(errors)
         } else {

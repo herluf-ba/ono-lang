@@ -79,7 +79,7 @@ impl fmt::Display for Error {
 
         write!(
             f,
-            "{:#?}: {}\n{}{}{}\n",
+            "{:#?}: {}\n{}{}{}",
             self.kind, self.message, row_str, line_src, column_indicator
         )
     }

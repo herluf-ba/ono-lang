@@ -23,16 +23,26 @@ pub enum Expr {
 
 // Expressions implement the visitor pattern
 pub trait ExprVisitor<T> {
-    fn visit(&mut self, e: &Expr) -> T;
+    fn visit_expression(&mut self, e: &Expr) -> T;
+}
+
+#[derive(Debug)]
+pub enum Stmt {
+    Expression(Expr),
+    Print(Expr),
+}
+
+pub trait StmtVisitor<T> {
+    fn visit_statement(&mut self, e: &Stmt) -> T;
 }
 
 pub struct ExprPrinter;
 impl ExprVisitor<String> for ExprPrinter {
-    fn visit(&mut self, e: &Expr) -> String {
+    fn visit_expression(&mut self, e: &Expr) -> String {
         match e {
             Expr::Literal { value } => format!("{}", value),
             Expr::Unary { operator, expr } => {
-                format!("({} {})", operator, self.visit(expr.as_ref()))
+                format!("({} {})", operator, self.visit_expression(expr.as_ref()))
             }
             Expr::Binary {
                 operator,
@@ -41,16 +51,16 @@ impl ExprVisitor<String> for ExprPrinter {
             } => format!(
                 "({} {} {})",
                 operator,
-                self.visit(left.as_ref()),
-                self.visit(right.as_ref()),
+                self.visit_expression(left.as_ref()),
+                self.visit_expression(right.as_ref()),
             ),
-            Expr::Group { expr } => format!("(group {})", self.visit(expr.as_ref())),
+            Expr::Group { expr } => format!("(group {})", self.visit_expression(expr.as_ref())),
         }
     }
 }
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", ExprPrinter.visit(self))
+        write!(f, "{}", ExprPrinter.visit_expression(self))
     }
 }

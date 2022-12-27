@@ -16,11 +16,29 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Expr, Error> {
-        self.tokens = tokens;
-        let result = self.expression();
+    pub fn reset(&mut self) {
         self.tokens.clear();
-        result
+        self.current = 0;
+    }
+
+    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Vec<Stmt>, Error> {
+        self.tokens = tokens;
+
+        let mut statements = Vec::new();
+        while !self.is_at_end() {
+            match self.statement() {
+                Ok(statement) => {
+                    statements.push(statement);
+                }
+                Err(error) => {
+                    self.reset();
+                    return Err(error);
+                }
+            };
+        }
+
+        self.reset();
+        Ok(statements)
     }
 
     fn previous(&self) -> &Token {
@@ -64,6 +82,41 @@ impl Parser {
         false
     }
 
+    fn statement(&mut self) -> Result<Stmt, Error> {
+        if self.is_token_of_kind(&[TokenKind::PRINT]) {
+            return self.print_statement();
+        }
+
+        self.expression_statement()
+    }
+
+    fn expression_statement(&mut self) -> Result<Stmt, Error> {
+        let expr = self.expression()?;
+        if self.consume(&TokenKind::SEMICOLON).is_none() {
+            println!("{:?}", self.peek());
+
+            return Err(Error::from_token(
+                self.peek(),
+                ErrorKind::SyntaxError,
+                "Expected ';' before here",
+            ));
+        }
+
+        Ok(Stmt::Expression(expr))
+    }
+
+    fn print_statement(&mut self) -> Result<Stmt, Error> {
+        let expr = self.expression()?;
+        if self.consume(&TokenKind::SEMICOLON).is_none() {
+            return Err(Error::from_token(
+                self.peek(),
+                ErrorKind::SyntaxError,
+                "Expected ';' before here",
+            ));
+        }
+
+        Ok(Stmt::Print(expr))
+    }
     // expression -> equality
     fn expression(&mut self) -> Result<Expr, Error> {
         self.equality()
@@ -73,10 +126,9 @@ impl Parser {
     fn equality(&mut self) -> Result<Expr, Error> {
         let mut expr = self.comparison()?;
         while self.is_token_of_kind(&[TokenKind::BANGEQUAL, TokenKind::EQUALEQUAL]) {
-            let right = self.comparison()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
-                right: Box::new(right),
+                right: Box::new(self.comparison()?),
                 left: Box::new(expr),
             }
         }
@@ -92,10 +144,9 @@ impl Parser {
             TokenKind::GREATER,
             TokenKind::GREATEREQUAL,
         ]) {
-            let right = self.term()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
-                right: Box::new(right),
+                right: Box::new(self.term()?),
                 left: Box::new(expr),
             }
         }
@@ -106,10 +157,9 @@ impl Parser {
     fn term(&mut self) -> Result<Expr, Error> {
         let mut expr = self.factor()?;
         while self.is_token_of_kind(&[TokenKind::MINUS, TokenKind::PLUS]) {
-            let right = self.factor()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
-                right: Box::new(right),
+                right: Box::new(self.factor()?),
                 left: Box::new(expr),
             }
         }
@@ -121,10 +171,9 @@ impl Parser {
         let mut expr = self.unary()?;
 
         while self.is_token_of_kind(&[TokenKind::SLASH, TokenKind::STAR]) {
-            let right = self.unary()?;
             expr = Expr::Binary {
                 operator: self.previous().clone(),
-                right: Box::new(right),
+                right: Box::new(self.unary()?),
                 left: Box::new(expr),
             }
         }
@@ -134,10 +183,9 @@ impl Parser {
     // unary -> ("!" | "-") unary | primary ;
     fn unary(&mut self) -> Result<Expr, Error> {
         if self.is_token_of_kind(&[TokenKind::BANG, TokenKind::MINUS]) {
-            let inner = self.unary()?;
             return Ok(Expr::Unary {
                 operator: self.previous().clone(),
-                expr: Box::new(inner),
+                expr: Box::new(self.unary()?),
             });
         }
         self.primary()
