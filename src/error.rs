@@ -75,7 +75,7 @@ impl fmt::Display for Error {
         let column_indicator = match self.column {
             Some(column) => {
                 let spaces = std::iter::repeat(" ")
-                    .take(row_str.len() + column - 1)
+                    .take(row_str.len() + column - self.len)
                     .collect::<String>();
                 let arrows = std::iter::repeat("^").take(self.len).collect::<String>();
                 format!("\n{}{}", spaces, arrows)
