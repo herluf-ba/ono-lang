@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::error::{Error, ErrorKind};
+use crate::error::{Error, SyntaxError};
 use crate::lexer::{Token, TokenKind};
 
 pub struct Parser {
@@ -89,8 +89,6 @@ impl Parser {
 
     fn synchronize(&mut self) {
         // Skip ahead until the start of the next statement is found
-
-        self.advance();
         while !self.is_at_end() {
             if self.previous().kind.is_same(&TokenKind::SEMICOLON) {
                 return;
@@ -125,13 +123,7 @@ impl Parser {
     fn let_declaration(&mut self) -> Result<Stmt, Error> {
         let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
             Some(token) => token.clone(),
-            None => {
-                return Err(Error::from_token(
-                    self.peek(),
-                    ErrorKind::SyntaxError,
-                    "Expected identifier",
-                ));
-            }
+            None => return Err(Error::syntax_error(SyntaxError::S004, self.peek().clone())),
         };
 
         let mut initializer = Expr::Literal {
@@ -149,11 +141,7 @@ impl Parser {
 
         match self.consume(&TokenKind::SEMICOLON) {
             Some(_) => Ok(Stmt::Let { name, initializer }),
-            None => Err(Error::from_token(
-                self.peek(),
-                ErrorKind::SyntaxError,
-                "Expected ';' before here",
-            )),
+            None => Err(Error::syntax_error(SyntaxError::S005, self.peek().clone())),
         }
     }
 
@@ -169,11 +157,7 @@ impl Parser {
     fn expression_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
-            return Err(Error::from_token(
-                self.peek(),
-                ErrorKind::SyntaxError,
-                "Expected ';' before here",
-            ));
+            return Err(Error::syntax_error(SyntaxError::S005, self.peek().clone()));
         }
 
         Ok(Stmt::Expression { expr })
@@ -182,11 +166,7 @@ impl Parser {
     fn print_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
-            return Err(Error::from_token(
-                self.peek(),
-                ErrorKind::SyntaxError,
-                "Expected ';' before here",
-            ));
+            return Err(Error::syntax_error(SyntaxError::S005, self.peek().clone()));
         }
 
         Ok(Stmt::Print { expr })
@@ -207,11 +187,7 @@ impl Parser {
                     name,
                     expr: Box::new(value),
                 }),
-                _ => Err(Error::from_token(
-                    &equals,
-                    ErrorKind::SyntaxError,
-                    "Target left of this '=' is invalid",
-                )),
+                _ => Err(Error::syntax_error(SyntaxError::S007, equals)),
             };
         }
 
@@ -312,11 +288,7 @@ impl Parser {
             let expr = self.expression()?;
 
             return if self.consume(&TokenKind::RIGHTPAREN).is_none() {
-                Err(Error::from_token(
-                    &opening_token,
-                    ErrorKind::SyntaxError,
-                    "Expected ')' closing this",
-                ))
+                Err(Error::syntax_error(SyntaxError::S006, opening_token))
             } else {
                 Ok(Expr::Group {
                     expr: Box::new(expr),
@@ -324,10 +296,6 @@ impl Parser {
             };
         }
 
-        Err(Error::from_token(
-            self.peek(),
-            ErrorKind::SyntaxError,
-            "Expected expression",
-        ))
+        Err(Error::syntax_error(SyntaxError::S003, self.peek().clone()))
     }
 }

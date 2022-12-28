@@ -1,116 +1,183 @@
 use colored::Colorize;
 use std::fmt;
 
-use crate::lexer::Token;
+use crate::{interpreter::Value, lexer::Token};
 
-#[derive(Debug)]
+pub enum SyntaxError {
+    /// Unknown operator
+    S001,
+    /// Unknown symbol
+    S002,
+    /// Expected expression
+    S003,
+    /// Expected identifier
+    S004,
+    /// Missing semicolon
+    S005,
+    /// Missing closer (')', '}', etc)
+    S006,
+    /// Invalid assignment Target
+    S007,
+    /// Unterminated string
+    S008,
+}
+
+pub enum TypeError {
+    /// Unary operand mismatch
+    T001 { operand: Value },
+    /// Binary operands mismatch
+    T002 { left: Value, right: Value },
+}
+
+pub enum RuntimeError {
+    /// Unknown identifier
+    R001,
+    /// Division by zero
+    R002,
+}
+
 pub enum ErrorKind {
-    SyntaxError,
-    RuntimeError,
+    Syntax(SyntaxError),
+    Type(TypeError),
+    Runtime(RuntimeError),
 }
 
 // Standard ono error type
-#[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,
+    pub token: Token,
     pub file: Option<String>,
-    pub row: Option<usize>,
-    pub column: Option<usize>,
-    pub len: usize,
     pub line_src: Option<String>,
-    pub message: String,
 }
 
 impl Error {
-    pub fn new(
-        kind: ErrorKind,
-        row: Option<usize>,
-        column: Option<usize>,
-        line_src: Option<&str>,
-        message: &str,
-    ) -> Self {
+    pub fn syntax_error(errno: SyntaxError, token: Token) -> Self {
         Self {
-            kind,
-            column,
-            row,
-            len: 1,
-            message: message.to_string(),
+            kind: ErrorKind::Syntax(errno),
+            token,
             file: None,
-            line_src: if let Some(line_src) = line_src {
-                Some(line_src.to_string())
-            } else {
-                None
-            },
-        }
-    }
-
-    pub fn from_token(token: &Token, kind: ErrorKind, message: &str) -> Self {
-        Self {
-            kind,
-            file: None,
-            column: Some(token.column),
-            len: token.lexeme.len(),
-            row: Some(token.row),
-            message: message.to_string(),
             line_src: None,
         }
     }
 
-    pub fn add_src(&mut self, line_src: &str) {
+    pub fn type_error(errno: TypeError, token: Token) -> Self {
+        Self {
+            kind: ErrorKind::Type(errno),
+            token,
+            file: None,
+            line_src: None,
+        }
+    }
+
+    pub fn runtime_error(errno: RuntimeError, token: Token) -> Self {
+        Self {
+            kind: ErrorKind::Runtime(errno),
+            token,
+            file: None,
+            line_src: None,
+        }
+    }
+
+    pub fn with_src_line(&mut self, line_src: &str) {
         self.line_src = Some(line_src.to_string())
     }
 
-    pub fn add_filename(&mut self, filename: &str) {
+    pub fn with_filename(&mut self, filename: &str) {
         self.file = Some(filename.to_string())
+    }
+
+    fn format_line_src(&self) -> String {
+        match &self.line_src {
+            None => String::new(),
+            Some(src) => {
+                let row_str = format!("{} | ", self.token.row + 1);
+                let column_indicator = {
+                    let spaces = std::iter::repeat(" ")
+                        .take(row_str.len() + self.token.column - self.token.lexeme.len())
+                        .collect::<String>();
+                    let arrows = std::iter::repeat("^")
+                        .take(self.token.lexeme.len())
+                        .collect::<String>();
+
+                    format!("{}{}", spaces, arrows.red().bold())
+                };
+
+                format!("{}{}\n{}", row_str.cyan(), src, column_indicator)
+            }
+        }
+    }
+
+    fn format_filename(&self) -> String {
+        match &self.file {
+            None => String::new(),
+            Some(filename) => {
+                let position = format!(" {}:{}", self.token.row + 1, self.token.column);
+                format!("-> {}{}", filename, position).cyan().to_string()
+            }
+        }
+    }
+
+    fn format_message(&self) -> String {
+        let identifier = match &self.kind {
+            ErrorKind::Syntax(_) => "error",
+            ErrorKind::Type(_) => "type error",
+            ErrorKind::Runtime(_) => "runtime error",
+        }
+        .bright_red();
+
+        let message = match &self.kind {
+            ErrorKind::Syntax(errno) => match errno {
+                SyntaxError::S001 => format!("'{}' used as an operator here", self.token.lexeme),
+                SyntaxError::S002 => format!("unexpected symbol '{}'", self.token.lexeme),
+                SyntaxError::S003 => format!("expected expression"),
+                SyntaxError::S004 => format!("expected identifier"),
+                SyntaxError::S005 => format!("missing ';'"),
+                SyntaxError::S006 => format!(
+                    "expected '{}' closing this",
+                    match self.token.lexeme.as_str() {
+                        "{" => "}",
+                        "(" => ")",
+                        "\"" => "\"",
+                        "[" => "]",
+                        _ => panic!("Unhandled opener"),
+                    }
+                ),
+                SyntaxError::S007 => format!("left-hand side is unassignable"),
+                SyntaxError::S008 => format!("unterminated string starting here"),
+            },
+            ErrorKind::Type(errno) => match errno {
+                TypeError::T001 { operand } => {
+                    format!(
+                        "cannot perform '{} {}'",
+                        self.token.lexeme,
+                        operand.display_type()
+                    )
+                }
+                TypeError::T002 { left, right } => format!(
+                    "cannot perform '{} {} {}'",
+                    left.display_type(),
+                    self.token.lexeme,
+                    right.display_type()
+                ),
+            },
+            ErrorKind::Runtime(errno) => match errno {
+                RuntimeError::R001 => format!("'{}' is not defined here", self.token.lexeme),
+                RuntimeError::R002 => format!("division by zero"),
+            },
+        };
+
+        format!("{}: {}", identifier, message).bold().to_string()
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let row_str = match self.row {
-            Some(row) => format!("{} | ", row + 1),
-            None => String::new(),
-        };
-
-        let column_indicator = match self.column {
-            Some(column) => {
-                let spaces = std::iter::repeat(" ")
-                    .take(row_str.len() + column - self.len)
-                    .collect::<String>();
-                let arrows = std::iter::repeat("^").take(self.len).collect::<String>();
-                format!("\n{}{}", spaces, arrows)
-            }
-            None => String::new(),
-        };
-
-        let line_src = match &self.line_src {
-            Some(line_src) => line_src,
-            None => "",
-        };
-
-        let file_name = match &self.file {
-            Some(file) => {
-                let position = match self.column {
-                    Some(column) => match self.row {
-                        Some(row) => format!(" {}:{}", row + 1, column),
-                        None => "".to_string(),
-                    },
-                    None => "".to_string(),
-                };
-                format!("-> {}{}\n", file, position).to_string()
-            }
-            None => "".to_string(),
-        };
-
         write!(
             f,
-            "\n{}: {}\n{}{}{}{}",
-            format!("{:#?}", self.kind).bright_red().bold(),
-            self.message.bold(),
-            file_name.cyan(),
-            row_str,
-            line_src,
-            column_indicator.bright_red().bold()
+            "\n{}\n{}\n{}",
+            self.format_message(),
+            self.format_filename(),
+            self.format_line_src(),
         )
     }
 }

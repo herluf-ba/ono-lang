@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::error::{Error, ErrorKind};
+use crate::error::{Error, SyntaxError};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum TokenKind {
@@ -283,13 +283,15 @@ impl Lexer {
             "\n" | " " | "\t" => {}
 
             _ => {
-                return Err(Error::new(
-                    ErrorKind::SyntaxError,
-                    Some(self.line),
-                    Some(self.column),
-                    None,
-                    &format!("Unexpected character '{}'", c),
-                ))
+                return Err(Error::syntax_error(
+                    SyntaxError::S002,
+                    Token {
+                        kind: TokenKind::NULL, // This is wrong but the kind is unknown here
+                        lexeme: c,
+                        row: self.line,
+                        column: self.column,
+                    },
+                ));
             }
         };
         Ok(())
@@ -304,12 +306,14 @@ impl Lexer {
         }
 
         if self.is_at_end() {
-            return Err(Error::new(
-                ErrorKind::SyntaxError,
-                Some(opening_row),
-                Some(opening_column),
-                None,
-                "Unterminated string starting here",
+            return Err(Error::syntax_error(
+                SyntaxError::S008,
+                Token {
+                    kind: TokenKind::NULL, // This is wrong but theres no '"' TokenKind
+                    row: opening_row,
+                    column: opening_column,
+                    lexeme: self.peek(),
+                },
             ));
         }
 

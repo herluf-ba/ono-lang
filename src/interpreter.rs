@@ -1,7 +1,7 @@
 use crate::{
     ast::*,
     environment::Environment,
-    error::{Error, ErrorKind},
+    error::{Error, RuntimeError, SyntaxError, TypeError},
     lexer::{Token, TokenKind},
 };
 use std::fmt::Display;
@@ -36,7 +36,7 @@ impl Value {
         }
     }
 
-    fn display_type(&self) -> String {
+    pub fn display_type(&self) -> String {
         String::from(match self {
             Value::Bool(_) => "boolean",
             Value::Text(_) => "string",
@@ -92,38 +92,29 @@ impl Interpreter {
             TokenKind::BANG => match value {
                 Value::Null => Ok(Value::Bool(false)),
                 Value::Bool(v) => Ok(Value::Bool(!v)),
-                _ => Err(Error::from_token(
-                    operator,
-                    ErrorKind::RuntimeError,
-                    &format!("Unable to negate value of type '{}'", value.display_type()),
+                _ => Err(Error::type_error(
+                    TypeError::T001 { operand: value },
+                    operator.clone(),
                 )),
             },
             TokenKind::MINUS => match value {
                 Value::Number(v) => Ok(Value::Number(-v)),
-                _ => Err(Error::from_token(
-                    operator,
-                    ErrorKind::RuntimeError,
-                    &format!("Unable to negate value of type '{}'", value.display_type()),
+                _ => Err(Error::type_error(
+                    TypeError::T001 { operand: value },
+                    operator.clone(),
                 )),
             },
-            _ => Err(Error::from_token(
-                operator,
-                ErrorKind::RuntimeError,
-                "Unknown unary operator encountered",
-            )),
+            _ => Err(Error::syntax_error(SyntaxError::S001, operator.clone())),
         }
     }
 
     fn binary(operator: &Token, left: Value, right: Value) -> Result<Value, Error> {
-        let mismatch_error = Err(Error::from_token(
-            operator,
-            ErrorKind::RuntimeError,
-            &format!(
-                "Cannot perform '{}' on a '{}' and a '{}'",
-                operator.lexeme,
-                left.display_type(),
-                right.display_type()
-            ),
+        let mismatch_error = Err(Error::type_error(
+            TypeError::T002 {
+                left: left.clone(),
+                right: right.clone(),
+            },
+            operator.clone(),
         ));
 
         match operator.kind {
@@ -158,11 +149,7 @@ impl Interpreter {
                         if r != 0.0 {
                             Ok(Value::Number(l / r))
                         } else {
-                            Err(Error::from_token(
-                                operator,
-                                ErrorKind::RuntimeError,
-                                "Division by zero",
-                            ))
+                            Err(Error::runtime_error(RuntimeError::R002, operator.clone()))
                         }
                     }
                     _ => mismatch_error,
@@ -199,11 +186,7 @@ impl Interpreter {
                 },
                 _ => mismatch_error,
             },
-            _ => Err(Error::from_token(
-                operator,
-                ErrorKind::SyntaxError,
-                "Unknown operator",
-            )),
+            _ => Err(Error::syntax_error(SyntaxError::S001, operator.clone())),
         }
     }
 }
@@ -214,23 +197,13 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
             Expr::Literal { value } => Ok(Value::from(value)),
             Expr::Variable { name } => match self.environment.get(&name.lexeme) {
                 Some(value) => Ok((*value).clone()),
-                None => Err(Error::from_token(
-                    name,
-                    ErrorKind::RuntimeError,
-                    &format!("'{}' is undefined here", name.lexeme),
-                )),
+                None => Err(Error::runtime_error(RuntimeError::R001, name.clone())),
             },
             Expr::Assign { name, expr } => {
                 let val = self.visit_expression(expr)?;
                 match self.environment.assign(&name.lexeme, val.clone()) {
                     Ok(_) => {}
-                    Err(_) => {
-                        return Err(Error::from_token(
-                            name,
-                            ErrorKind::RuntimeError,
-                            &format!("unknown identifier '{}' mentioned here", name.lexeme),
-                        ))
-                    }
+                    Err(_) => return Err(Error::runtime_error(RuntimeError::R001, name.clone())),
                 }
 
                 Ok(val)

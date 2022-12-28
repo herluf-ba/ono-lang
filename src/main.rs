@@ -81,12 +81,10 @@ impl Program {
     }
 
     fn report_error(&self, error: &mut Error) {
-        if let Some(row) = error.row {
-            error.add_src(&self.lines[row]);
-        }
+        error.with_src_line(&self.lines[error.token.row]);
 
         if let Some(filename) = &self.current_filename {
-            error.add_filename(&filename);
+            error.with_filename(&filename);
         }
 
         println!("{}", error);
