@@ -21,24 +21,29 @@ impl Parser {
         self.current = 0;
     }
 
-    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Vec<Stmt>, Error> {
+    pub fn parse(&mut self, tokens: Vec<Token>) -> Result<Vec<Stmt>, Vec<Error>> {
         self.tokens = tokens;
-
+        let mut errors = Vec::new();
         let mut statements = Vec::new();
+
         while !self.is_at_end() {
-            match self.statement() {
+            match self.declaration() {
                 Ok(statement) => {
                     statements.push(statement);
                 }
                 Err(error) => {
-                    self.reset();
-                    return Err(error);
+                    errors.push(error);
+                    self.synchronize();
                 }
             };
         }
-
         self.reset();
-        Ok(statements)
+
+        if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(statements)
+        }
     }
 
     fn previous(&self) -> &Token {
@@ -82,6 +87,77 @@ impl Parser {
         false
     }
 
+    fn synchronize(&mut self) {
+        // Skip ahead until the start of the next statement is found
+
+        self.advance();
+        while !self.is_at_end() {
+            if self.previous().kind.is_same(&TokenKind::SEMICOLON) {
+                return;
+            }
+
+            match self.peek().kind {
+                TokenKind::CLASS
+                | TokenKind::FUN
+                | TokenKind::LET
+                | TokenKind::FOR
+                | TokenKind::IF
+                | TokenKind::WHILE
+                | TokenKind::PRINT
+                | TokenKind::RETURN => {
+                    return;
+                }
+                _ => self.advance(),
+            };
+        }
+    }
+
+    // declaration -> let_declaration | statement ;
+    fn declaration(&mut self) -> Result<Stmt, Error> {
+        if self.is_token_of_kind(&[TokenKind::LET]) {
+            return self.let_declaration();
+        }
+
+        self.statement()
+    }
+
+    // let_declaration -> "let" IDENTIFIER ( "=" expression )? ";" ;
+    fn let_declaration(&mut self) -> Result<Stmt, Error> {
+        let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
+            Some(token) => token.clone(),
+            None => {
+                return Err(Error::from_token(
+                    self.peek(),
+                    ErrorKind::SyntaxError,
+                    "Expected identifier",
+                ));
+            }
+        };
+
+        let mut initializer = Expr::Literal {
+            value: Token {
+                kind: TokenKind::NULL,
+                lexeme: "".to_string(),
+                row: 0,
+                column: 0,
+            },
+        };
+
+        if self.is_token_of_kind(&[TokenKind::EQUAL]) {
+            initializer = self.expression()?;
+        }
+
+        match self.consume(&TokenKind::SEMICOLON) {
+            Some(_) => Ok(Stmt::Let { name, initializer }),
+            None => Err(Error::from_token(
+                self.peek(),
+                ErrorKind::SyntaxError,
+                "Expected ';' before here",
+            )),
+        }
+    }
+
+    // statement -> expression_statement | print_statement ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::PRINT]) {
             return self.print_statement();
@@ -93,8 +169,6 @@ impl Parser {
     fn expression_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
-            println!("{:?}", self.peek());
-
             return Err(Error::from_token(
                 self.peek(),
                 ErrorKind::SyntaxError,
@@ -102,7 +176,7 @@ impl Parser {
             ));
         }
 
-        Ok(Stmt::Expression(expr))
+        Ok(Stmt::Expression { expr })
     }
 
     fn print_statement(&mut self) -> Result<Stmt, Error> {
@@ -115,11 +189,33 @@ impl Parser {
             ));
         }
 
-        Ok(Stmt::Print(expr))
+        Ok(Stmt::Print { expr })
     }
-    // expression -> equality
+    // expression -> assigment
     fn expression(&mut self) -> Result<Expr, Error> {
-        self.equality()
+        self.assigment()
+    }
+
+    // assigment -> IDENTIFIER "=" assigment | equality ;
+    fn assigment(&mut self) -> Result<Expr, Error> {
+        let expr = self.equality()?;
+        if self.is_token_of_kind(&[TokenKind::EQUAL]) {
+            let equals = self.previous().clone();
+            let value = self.assigment()?;
+            return match expr {
+                Expr::Variable { name } => Ok(Expr::Assign {
+                    name,
+                    expr: Box::new(value),
+                }),
+                _ => Err(Error::from_token(
+                    &equals,
+                    ErrorKind::SyntaxError,
+                    "Target left of this '=' is invalid",
+                )),
+            };
+        }
+
+        Ok(expr)
     }
 
     // equality -> comparison ( ("!=" | "==") comparison )* ;
@@ -205,6 +301,12 @@ impl Parser {
             });
         }
 
+        if self.is_token_of_kind(&[TokenKind::IDENTIFIER("".to_string())]) {
+            return Ok(Expr::Variable {
+                name: self.previous().clone(),
+            });
+        }
+
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
             let opening_token = self.previous().clone();
             let expr = self.expression()?;
@@ -223,7 +325,7 @@ impl Parser {
         }
 
         Err(Error::from_token(
-            self.previous(),
+            self.peek(),
             ErrorKind::SyntaxError,
             "Expected expression",
         ))

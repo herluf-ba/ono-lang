@@ -7,6 +7,13 @@ pub enum Expr {
     Literal {
         value: Token,
     },
+    Variable {
+        name: Token,
+    },
+    Assign {
+        name: Token,
+        expr: Box<Expr>,
+    },
     Unary {
         operator: Token,
         expr: Box<Expr>,
@@ -28,8 +35,9 @@ pub trait ExprVisitor<T> {
 
 #[derive(Debug)]
 pub enum Stmt {
-    Expression(Expr),
-    Print(Expr),
+    Expression { expr: Expr },
+    Print { expr: Expr },
+    Let { name: Token, initializer: Expr },
 }
 
 pub trait StmtVisitor<T> {
@@ -41,6 +49,10 @@ impl ExprVisitor<String> for ExprPrinter {
     fn visit_expression(&mut self, e: &Expr) -> String {
         match e {
             Expr::Literal { value } => format!("{}", value),
+            Expr::Variable { name } => format!("{}", name.lexeme),
+            Expr::Assign { name, expr } => {
+                format!("{} = {}", name.lexeme, self.visit_expression(expr.as_ref()))
+            }
             Expr::Unary { operator, expr } => {
                 format!("({} {})", operator, self.visit_expression(expr.as_ref()))
             }

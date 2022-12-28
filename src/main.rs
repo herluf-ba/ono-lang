@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use std::path::Path;
 
 mod ast;
+mod environment;
 mod error;
 mod interpreter;
 mod lexer;
@@ -15,6 +16,7 @@ use lexer::Lexer;
 use parser::Parser;
 
 struct Program {
+    current_filename: Option<String>,
     lines: Vec<String>,
     lexer: Lexer,
     parser: Parser,
@@ -24,6 +26,7 @@ struct Program {
 impl Program {
     pub fn new() -> Self {
         Self {
+            current_filename: None,
             lines: Vec::new(),
             lexer: Lexer::new(),
             parser: Parser::new(),
@@ -45,8 +48,8 @@ impl Program {
 
         let statements = match self.parser.parse(tokens) {
             Ok(statements) => statements,
-            Err(mut error) => {
-                self.report_error(&mut error);
+            Err(errors) => {
+                self.report_errors(errors);
                 return Err(());
             }
         };
@@ -60,10 +63,32 @@ impl Program {
         }
     }
 
+    fn feed_file(&mut self, filename: &str) -> Result<(), ()> {
+        self.current_filename = Some(filename.to_string());
+        let path = Path::new(&filename);
+        let mut file = match File::open(&path) {
+            Err(_) => return Err(()), // TODO: exit code
+            Ok(file) => file,
+        };
+
+        let mut src = String::new();
+        match file.read_to_string(&mut src) {
+            Err(_) => return Err(()), // TODO: Exit code
+            Ok(_) => {}
+        };
+
+        self.feed(src)
+    }
+
     fn report_error(&self, error: &mut Error) {
         if let Some(row) = error.row {
             error.add_src(&self.lines[row]);
         }
+
+        if let Some(filename) = &self.current_filename {
+            error.add_filename(&filename);
+        }
+
         println!("{}", error);
     }
 
@@ -81,33 +106,16 @@ fn main() {
         panic!("Usage: ono [script?]");
     }
 
-    let program = Program::new();
+    let mut program = Program::new();
 
     if args.len() == 2 {
-        run_file(program, &args[1]);
+        match program.feed_file(&args[1]) {
+            Err(_) => {}
+            Ok(_) => {}
+        }
     } else {
         run_prompt(program);
     }
-}
-
-fn run_file(mut program: Program, filename: &str) {
-    let path = Path::new(&filename);
-
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("couldn't open {}: {}", path.display(), why),
-        Ok(file) => file,
-    };
-
-    let mut src = String::new();
-    match file.read_to_string(&mut src) {
-        Err(why) => panic!("couldn't read {}: {}", path.display(), why),
-        Ok(_) => {}
-    };
-
-    match program.feed(src) {
-        Ok(_) => {}
-        Err(_) => {} // TODO: Exit with some code
-    };
 }
 
 fn prompt_user() {

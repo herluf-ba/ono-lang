@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::fmt;
 
 use crate::lexer::Token;
@@ -11,10 +12,11 @@ pub enum ErrorKind {
 // Standard ono error type
 #[derive(Debug)]
 pub struct Error {
-    // Row and column are optional since they have no meaning in a REPL
     pub kind: ErrorKind,
+    pub file: Option<String>,
     pub row: Option<usize>,
     pub column: Option<usize>,
+    pub len: usize,
     pub line_src: Option<String>,
     pub message: String,
 }
@@ -31,7 +33,9 @@ impl Error {
             kind,
             column,
             row,
+            len: 1,
             message: message.to_string(),
+            file: None,
             line_src: if let Some(line_src) = line_src {
                 Some(line_src.to_string())
             } else {
@@ -43,7 +47,9 @@ impl Error {
     pub fn from_token(token: &Token, kind: ErrorKind, message: &str) -> Self {
         Self {
             kind,
+            file: None,
             column: Some(token.column),
+            len: token.lexeme.len(),
             row: Some(token.row),
             message: message.to_string(),
             line_src: None,
@@ -52,6 +58,10 @@ impl Error {
 
     pub fn add_src(&mut self, line_src: &str) {
         self.line_src = Some(line_src.to_string())
+    }
+
+    pub fn add_filename(&mut self, filename: &str) {
+        self.file = Some(filename.to_string())
     }
 }
 
@@ -67,7 +77,8 @@ impl fmt::Display for Error {
                 let spaces = std::iter::repeat(" ")
                     .take(row_str.len() + column - 1)
                     .collect::<String>();
-                format!("\n{}^", spaces)
+                let arrows = std::iter::repeat("^").take(self.len).collect::<String>();
+                format!("\n{}{}", spaces, arrows)
             }
             None => String::new(),
         };
@@ -77,10 +88,29 @@ impl fmt::Display for Error {
             None => "",
         };
 
+        let file_name = match &self.file {
+            Some(file) => {
+                let position = match self.column {
+                    Some(column) => match self.row {
+                        Some(row) => format!(" {}:{}", row + 1, column),
+                        None => "".to_string(),
+                    },
+                    None => "".to_string(),
+                };
+                format!("-> {}{}\n", file, position).to_string()
+            }
+            None => "".to_string(),
+        };
+
         write!(
             f,
-            "{:#?}: {}\n{}{}{}",
-            self.kind, self.message, row_str, line_src, column_indicator
+            "\n{}: {}\n{}{}{}{}",
+            format!("{:#?}", self.kind).bright_red().bold(),
+            self.message.bold(),
+            file_name.cyan(),
+            row_str,
+            line_src,
+            column_indicator.bright_red().bold()
         )
     }
 }

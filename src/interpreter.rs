@@ -1,11 +1,12 @@
 use crate::{
     ast::*,
+    environment::Environment,
     error::{Error, ErrorKind},
     lexer::{Token, TokenKind},
 };
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Bool(bool),
     Text(String),
@@ -68,11 +69,15 @@ impl Display for Value {
     }
 }
 
-pub struct Interpreter;
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            environment: Environment::new(),
+        }
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), Error> {
@@ -207,6 +212,29 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
     fn visit_expression(&mut self, e: &Expr) -> Result<Value, Error> {
         match e {
             Expr::Literal { value } => Ok(Value::from(value)),
+            Expr::Variable { name } => match self.environment.get(&name.lexeme) {
+                Some(value) => Ok((*value).clone()),
+                None => Err(Error::from_token(
+                    name,
+                    ErrorKind::RuntimeError,
+                    &format!("'{}' is undefined here", name.lexeme),
+                )),
+            },
+            Expr::Assign { name, expr } => {
+                let val = self.visit_expression(expr)?;
+                match self.environment.assign(&name.lexeme, val.clone()) {
+                    Ok(_) => {}
+                    Err(_) => {
+                        return Err(Error::from_token(
+                            name,
+                            ErrorKind::RuntimeError,
+                            &format!("unknown identifier '{}' mentioned here", name.lexeme),
+                        ))
+                    }
+                }
+
+                Ok(val)
+            }
             Expr::Unary { operator, expr } => {
                 let val = self.visit_expression(expr)?;
                 Interpreter::unary(operator, val)
@@ -227,10 +255,14 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
 impl StmtVisitor<Result<(), Error>> for Interpreter {
     fn visit_statement(&mut self, s: &Stmt) -> Result<(), Error> {
         match s {
-            Stmt::Expression(expr) => {
+            Stmt::Expression { expr } => {
                 self.visit_expression(expr)?;
             }
-            Stmt::Print(expr) => println!("{}", self.visit_expression(expr)?),
+            Stmt::Print { expr } => println!("{}", self.visit_expression(expr)?),
+            Stmt::Let { name, initializer } => {
+                let value = self.visit_expression(initializer)?;
+                self.environment.define(&name.lexeme, value)
+            }
         };
         Ok(())
     }
