@@ -35,10 +35,24 @@ pub trait ExprVisitor<T> {
 
 #[derive(Debug)]
 pub enum Stmt {
-    Expression { expr: Expr },
-    Print { expr: Expr },
-    Let { name: Token, initializer: Expr },
-    Block { statements: Vec<Stmt> },
+    Expression {
+        expr: Expr,
+    },
+    Print {
+        expr: Expr,
+    },
+    Let {
+        name: Token,
+        initializer: Expr,
+    },
+    Block {
+        statements: Vec<Stmt>,
+    },
+    If {
+        condition: Expr,
+        then: Box<Stmt>,
+        eelse: Option<Box<Stmt>>,
+    },
 }
 
 pub trait StmtVisitor<T> {

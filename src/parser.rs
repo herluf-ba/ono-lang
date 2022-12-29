@@ -7,7 +7,6 @@ pub struct Parser {
     current: usize,
 }
 
-// A recursive descent parser that produces an AST
 impl Parser {
     pub fn new() -> Self {
         Self {
@@ -110,7 +109,7 @@ impl Parser {
         }
     }
 
-    // declaration -> let_declaration | statement ;
+    /// declaration -> let_declaration | statement ;
     fn declaration(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::LET]) {
             return self.let_declaration();
@@ -119,7 +118,7 @@ impl Parser {
         self.statement()
     }
 
-    // let_declaration -> "let" IDENTIFIER ( "=" expression )? ";" ;
+    /// let_declaration -> "let" IDENTIFIER ( "=" expression )? ";" ;
     fn let_declaration(&mut self) -> Result<Stmt, Error> {
         let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
             Some(token) => token.clone(),
@@ -145,8 +144,12 @@ impl Parser {
         }
     }
 
-    // statement -> expression_statement | print_statement | block ;
+    /// statement -> expression_statement | print_statement | if_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
+        if self.is_token_of_kind(&[TokenKind::IF]) {
+            return self.if_statement();
+        }
+
         if self.is_token_of_kind(&[TokenKind::PRINT]) {
             return self.print_statement();
         }
@@ -173,6 +176,7 @@ impl Parser {
         }
     }
 
+    /// expression_statement -> expression ";" ;
     fn expression_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
@@ -182,6 +186,7 @@ impl Parser {
         Ok(Stmt::Expression { expr })
     }
 
+    /// print_statement -> "print" expression ";" ;
     fn print_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
@@ -190,12 +195,49 @@ impl Parser {
 
         Ok(Stmt::Print { expr })
     }
-    // expression -> assigment
+
+    /// if_statement -> "if" expression block ( "else" block )? ;
+    fn if_statement(&mut self) -> Result<Stmt, Error> {
+        let condition = self.expression()?;
+        let then = if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+            Box::new(Stmt::Block {
+                statements: self.block()?,
+            })
+        } else {
+            return Err(Error::syntax_error(
+                SyntaxError::S009,
+                self.previous().clone(),
+            ));
+        };
+
+        let eelse = if self.is_token_of_kind(&[TokenKind::ELSE]) {
+            if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+                Some(Box::new(Stmt::Block {
+                    statements: self.block()?,
+                }))
+            } else {
+                return Err(Error::syntax_error(
+                    SyntaxError::S009,
+                    self.previous().clone(),
+                ));
+            }
+        } else {
+            None
+        };
+
+        Ok(Stmt::If {
+            condition,
+            then,
+            eelse,
+        })
+    }
+
+    /// expression -> assigment
     fn expression(&mut self) -> Result<Expr, Error> {
         self.assigment()
     }
 
-    // assigment -> IDENTIFIER "=" assigment | equality ;
+    /// assigment -> IDENTIFIER "=" assigment | equality ;
     fn assigment(&mut self) -> Result<Expr, Error> {
         let expr = self.equality()?;
         if self.is_token_of_kind(&[TokenKind::EQUAL]) {

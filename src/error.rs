@@ -20,6 +20,8 @@ pub enum SyntaxError {
     S007,
     /// Unterminated string
     S008,
+    /// Expected block
+    S009,
 }
 
 pub enum TypeError {
@@ -127,11 +129,11 @@ impl Error {
 
         let message = match &self.kind {
             ErrorKind::Syntax(errno) => match errno {
-                SyntaxError::S001 => format!("'{}' used as an operator here", self.token.lexeme),
+                SyntaxError::S001 => format!("expected operator, found '{}'", self.token.lexeme),
                 SyntaxError::S002 => format!("unexpected symbol '{}'", self.token.lexeme),
-                SyntaxError::S003 => format!("expected expression"),
-                SyntaxError::S004 => format!("expected identifier"),
-                SyntaxError::S005 => format!("missing ';'"),
+                SyntaxError::S003 => format!("expected expression, found '{}'", self.token.lexeme),
+                SyntaxError::S004 => format!("expected identifier, found '{}'", self.token.lexeme),
+                SyntaxError::S005 => format!("expected ';', found '{}'", self.token.lexeme),
                 SyntaxError::S006 => format!(
                     "expected '{}' closing this",
                     match self.token.lexeme.as_str() {
@@ -143,7 +145,8 @@ impl Error {
                     }
                 ),
                 SyntaxError::S007 => format!("left-hand side is unassignable"),
-                SyntaxError::S008 => format!("unterminated string starting here"),
+                SyntaxError::S008 => format!("expected '\"' closing string starting here"),
+                SyntaxError::S009 => format!("expected block, found '{}'", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { operand } => {

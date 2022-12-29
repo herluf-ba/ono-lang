@@ -252,6 +252,20 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
             Stmt::Block { statements } => {
                 self.execute_block(statements)?;
             }
+            Stmt::If {
+                condition,
+                then,
+                eelse,
+            } => {
+                if self
+                    .visit_expression(condition)?
+                    .is_equal(&Value::Bool(true))
+                {
+                    self.visit_statement(then)?;
+                } else if let Some(eelse) = eelse {
+                    self.visit_statement(eelse)?;
+                }
+            }
         };
         Ok(())
     }
