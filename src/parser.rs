@@ -145,13 +145,32 @@ impl Parser {
         }
     }
 
-    // statement -> expression_statement | print_statement ;
+    // statement -> expression_statement | print_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::PRINT]) {
             return self.print_statement();
         }
 
+        if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+            return Ok(Stmt::Block {
+                statements: self.block()?,
+            });
+        }
         self.expression_statement()
+    }
+
+    fn block(&mut self) -> Result<Vec<Stmt>, Error> {
+        let opening_brace = self.peek().clone();
+        let mut statements = Vec::new();
+
+        while !self.check(&TokenKind::RIGHTBRACE) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        match self.consume(&TokenKind::RIGHTBRACE) {
+            Some(_) => Ok(statements),
+            None => Err(Error::syntax_error(SyntaxError::S006, opening_brace)),
+        }
     }
 
     fn expression_statement(&mut self) -> Result<Stmt, Error> {

@@ -87,6 +87,18 @@ impl Interpreter {
         Ok(())
     }
 
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>) -> Result<(), Error> {
+        let enclosing_env = self.environment.clone();
+        self.environment = Environment::new_nested(&enclosing_env);
+
+        for statement in statements {
+            self.visit_statement(&statement)?;
+        }
+
+        self.environment = enclosing_env;
+        Ok(())
+    }
+
     fn unary(operator: &Token, value: Value) -> Result<Value, Error> {
         match operator.kind {
             TokenKind::BANG => match value {
@@ -225,6 +237,7 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
         }
     }
 }
+
 impl StmtVisitor<Result<(), Error>> for Interpreter {
     fn visit_statement(&mut self, s: &Stmt) -> Result<(), Error> {
         match s {
@@ -235,6 +248,9 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
             Stmt::Let { name, initializer } => {
                 let value = self.visit_expression(initializer)?;
                 self.environment.define(&name.lexeme, value)
+            }
+            Stmt::Block { statements } => {
+                self.execute_block(statements)?;
             }
         };
         Ok(())

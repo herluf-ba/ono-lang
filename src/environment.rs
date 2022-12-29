@@ -2,13 +2,23 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use crate::interpreter::Value;
 
+#[derive(Clone)]
 pub struct Environment {
+    enclosing: Option<Box<Environment>>,
     values: HashMap<String, Value>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
+            enclosing: None,
+            values: HashMap::new(),
+        }
+    }
+
+    pub fn new_nested(parent: &Environment) -> Self {
+        Self {
+            enclosing: Some(Box::new(parent.clone())),
             values: HashMap::new(),
         }
     }
@@ -18,7 +28,13 @@ impl Environment {
     }
 
     pub fn get(&mut self, name: &str) -> Option<&Value> {
-        self.values.get(name)
+        match self.values.get(name) {
+            Some(v) => Some(v),
+            None => match &mut self.enclosing {
+                Some(enclosing) => enclosing.get(name),
+                None => None,
+            },
+        }
     }
 
     pub fn assign(&mut self, name: &str, value: Value) -> Result<(), ()> {
@@ -27,7 +43,10 @@ impl Environment {
                 *entry.get_mut() = value;
                 Ok(())
             }
-            Entry::Vacant(_) => Err(()),
+            Entry::Vacant(_) => match &mut self.enclosing {
+                Some(enclosing) => enclosing.assign(name, value),
+                None => Err(()),
+            },
         }
     }
 }

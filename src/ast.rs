@@ -38,6 +38,7 @@ pub enum Stmt {
     Expression { expr: Expr },
     Print { expr: Expr },
     Let { name: Token, initializer: Expr },
+    Block { statements: Vec<Stmt> },
 }
 
 pub trait StmtVisitor<T> {
