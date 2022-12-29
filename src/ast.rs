@@ -23,6 +23,11 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+    Logical {
+        operator: Token,
+        left: Box<Expr>,
+        right: Box<Expr>,
+    },
     Group {
         expr: Box<Expr>,
     },
@@ -72,6 +77,16 @@ impl ExprVisitor<String> for ExprPrinter {
                 format!("({} {})", operator, self.visit_expression(expr.as_ref()))
             }
             Expr::Binary {
+                operator,
+                left,
+                right,
+            } => format!(
+                "({} {} {})",
+                operator,
+                self.visit_expression(left.as_ref()),
+                self.visit_expression(right.as_ref()),
+            ),
+            Expr::Logical {
                 operator,
                 left,
                 right,

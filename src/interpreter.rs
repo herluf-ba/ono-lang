@@ -36,6 +36,14 @@ impl Value {
         }
     }
 
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Null => false,
+            Value::Bool(val) => *val,
+            _ => true,
+        }
+    }
+
     pub fn display_type(&self) -> String {
         String::from(match self {
             Value::Bool(_) => "boolean",
@@ -234,6 +242,20 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
                 Interpreter::binary(operator, left, right)
             }
             Expr::Group { expr } => self.visit_expression(expr),
+            Expr::Logical {
+                operator,
+                left,
+                right,
+            } => {
+                let left = self.visit_expression(left)?;
+                let left_is_true = left.is_truthy();
+
+                match operator.kind {
+                    TokenKind::OR if left_is_true => Ok(left),
+                    TokenKind::AND if !left_is_true => Ok(left),
+                    _ => self.visit_expression(right),
+                }
+            }
         }
     }
 }

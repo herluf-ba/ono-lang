@@ -237,9 +237,9 @@ impl Parser {
         self.assigment()
     }
 
-    /// assigment -> IDENTIFIER "=" assigment | equality ;
+    /// assigment -> IDENTIFIER "=" assigment | logic_or ;
     fn assigment(&mut self) -> Result<Expr, Error> {
-        let expr = self.equality()?;
+        let expr = self.logic_or()?;
         if self.is_token_of_kind(&[TokenKind::EQUAL]) {
             let equals = self.previous().clone();
             let value = self.assigment()?;
@@ -255,7 +255,39 @@ impl Parser {
         Ok(expr)
     }
 
-    // equality -> comparison ( ("!=" | "==") comparison )* ;
+    /// logic_or -> logic_and ( "or" logic_and )* ;
+    fn logic_or(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.logic_and()?;
+
+        while self.is_token_of_kind(&[TokenKind::OR]) {
+            let operator = self.previous();
+            expr = Expr::Logical {
+                operator: operator.clone(),
+                left: Box::new(expr),
+                right: Box::new(self.logic_and()?),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    /// logic_and -> equality ( "and" equality )* ;
+    fn logic_and(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.equality()?;
+
+        while self.is_token_of_kind(&[TokenKind::OR]) {
+            let operator = self.previous();
+            expr = Expr::Logical {
+                operator: operator.clone(),
+                left: Box::new(expr),
+                right: Box::new(self.equality()?),
+            }
+        }
+
+        Ok(expr)
+    }
+
+    /// equality -> comparison ( ("!=" | "==") comparison )* ;
     fn equality(&mut self) -> Result<Expr, Error> {
         let mut expr = self.comparison()?;
         while self.is_token_of_kind(&[TokenKind::BANGEQUAL, TokenKind::EQUALEQUAL]) {
