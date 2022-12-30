@@ -13,6 +13,7 @@ pub enum TokenKind {
     RIGHTBRACE,
     COMMA,
     DOT,
+    DOTDOT,
     MINUS,
     PLUS,
     SEMICOLON,
@@ -44,6 +45,7 @@ pub enum TokenKind {
     IF,
     NULL,
     OR,
+    IN,
     PRINT,
     RETURN,
     SUPER,
@@ -86,6 +88,7 @@ fn identifier_token_kind(c: &str) -> TokenKind {
         "for" => TokenKind::FOR,
         "fun" => TokenKind::FUN,
         "if" => TokenKind::IF,
+        "in" => TokenKind::IN,
         "null" => TokenKind::NULL,
         "or" => TokenKind::OR,
         "print" => TokenKind::PRINT,
@@ -229,7 +232,13 @@ impl Lexer {
             "{" => self.add_token(TokenKind::LEFTBRACE),
             "}" => self.add_token(TokenKind::RIGHTBRACE),
             "," => self.add_token(TokenKind::COMMA),
-            "." => self.add_token(TokenKind::DOT),
+            "." => {
+                if self.is_next(".") {
+                    self.add_token(TokenKind::DOTDOT);
+                } else {
+                    self.add_token(TokenKind::DOT);
+                }
+            }
             "-" => self.add_token(TokenKind::MINUS),
             "+" => self.add_token(TokenKind::PLUS),
             ";" => self.add_token(TokenKind::SEMICOLON),

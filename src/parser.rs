@@ -89,7 +89,7 @@ impl Parser {
     fn synchronize(&mut self) {
         // Skip ahead until the start of the next statement is found
         while !self.is_at_end() {
-            if self.previous().kind.is_same(&TokenKind::SEMICOLON) {
+            if self.is_token_of_kind(&[TokenKind::SEMICOLON]) {
                 return;
             }
 
@@ -144,10 +144,18 @@ impl Parser {
         }
     }
 
-    /// statement -> expression_statement | print_statement | if_statement | block ;
+    /// statement -> expression_statement | print_statement | if_statement | while_statement | for_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::IF]) {
             return self.if_statement();
+        }
+
+        if self.is_token_of_kind(&[TokenKind::WHILE]) {
+            return self.while_statement();
+        }
+
+        if self.is_token_of_kind(&[TokenKind::FOR]) {
+            return self.for_statement();
         }
 
         if self.is_token_of_kind(&[TokenKind::PRINT]) {
@@ -159,6 +167,7 @@ impl Parser {
                 statements: self.block()?,
             });
         }
+
         self.expression_statement()
     }
 
@@ -194,6 +203,88 @@ impl Parser {
         }
 
         Ok(Stmt::Print { expr })
+    }
+
+    /// while_statement -> "while" expression block ;
+    fn while_statement(&mut self) -> Result<Stmt, Error> {
+        let condition = self.expression()?;
+
+        let body = if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+            Box::new(Stmt::Block {
+                statements: self.block()?,
+            })
+        } else {
+            return Err(Error::syntax_error(
+                SyntaxError::S009,
+                self.previous().clone(),
+            ));
+        };
+
+        Ok(Stmt::While { condition, body })
+    }
+
+    /// for_statement -> "for" IDENTIFIER in range_expression block ;
+    fn for_statement(&mut self) -> Result<Stmt, Error> {
+        let identifier = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
+            Some(token) => token.clone(),
+            None => return Err(Error::syntax_error(SyntaxError::S004, self.peek().clone())),
+        };
+
+        if self.consume(&TokenKind::IN).is_none() {
+            return Err(Error::syntax_error(
+                SyntaxError::S010 {
+                    keyword: "in".to_string(),
+                },
+                self.previous().clone(),
+            ));
+        }
+
+        let range = self.range_expression()?;
+
+        let body = if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+            Box::new(Stmt::Block {
+                statements: self.block()?,
+            })
+        } else {
+            return Err(Error::syntax_error(
+                SyntaxError::S009,
+                self.previous().clone(),
+            ));
+        };
+
+        Ok(Stmt::For {
+            identifier,
+            range,
+            body,
+        })
+    }
+
+    /// range_expression -> expression ".." ( expression "..")? expression
+    fn range_expression(&mut self) -> Result<Expr, Error> {
+        let token = self.peek().clone(); // TODO: It would be nice if the lexeme covered the whole range here for better errors
+
+        let from = Box::new(self.expression()?);
+
+        if !self.is_token_of_kind(&[TokenKind::DOTDOT]) {
+            return Err(Error::syntax_error(
+                SyntaxError::S011,
+                self.previous().clone(),
+            ));
+        }
+
+        let mut to = Box::new(self.expression()?);
+
+        let mut step_by = None;
+        if self.is_token_of_kind(&[TokenKind::DOTDOT]) {
+            step_by = Some(to);
+            to = Box::new(self.expression()?);
+        }
+        Ok(Expr::Range {
+            from,
+            step_by,
+            to,
+            token,
+        })
     }
 
     /// if_statement -> "if" expression block ( "else" block )? ;

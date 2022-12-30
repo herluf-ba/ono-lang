@@ -8,6 +8,7 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Range { to: f64, from: f64, step_by: f64 },
     Bool(bool),
     Text(String),
     Number(f64),
@@ -17,6 +18,14 @@ pub enum Value {
 impl Value {
     fn is_equal(&self, other: &Value) -> bool {
         match self {
+            Value::Range { to, from, step_by } => match other {
+                Value::Range {
+                    to: o_to,
+                    from: o_from,
+                    step_by: o_step_by,
+                } => to == o_to && from == o_from && o_step_by == step_by,
+                _ => false,
+            },
             Value::Bool(s) => match other {
                 Value::Bool(o) => s == o,
                 _ => false,
@@ -47,6 +56,11 @@ impl Value {
     pub fn display_type(&self) -> String {
         String::from(match self {
             Value::Bool(_) => "boolean",
+            Value::Range {
+                to: _,
+                from: _,
+                step_by: _,
+            } => "range",
             Value::Text(_) => "string",
             Value::Number(_) => "number",
             Value::Null => "null",
@@ -69,6 +83,17 @@ impl From<&Token> for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Value::Range { to, from, step_by } => write!(
+                f,
+                "{}..{}{}",
+                from,
+                if *step_by != 1.0 {
+                    format!("{}..", step_by)
+                } else {
+                    "".to_string()
+                },
+                to
+            ),
             Value::Bool(v) => write!(f, "{}", v),
             Value::Text(v) => write!(f, "{}", v),
             Value::Number(v) => write!(f, "{}", v),
@@ -96,14 +121,13 @@ impl Interpreter {
     }
 
     pub fn execute_block(&mut self, statements: &Vec<Stmt>) -> Result<(), Error> {
-        let enclosing_env = self.environment.clone();
-        self.environment = Environment::new_nested(&enclosing_env);
+        self.environment.nest();
 
         for statement in statements {
             self.visit_statement(&statement)?;
         }
 
-        self.environment = enclosing_env;
+        self.environment.pop();
         Ok(())
     }
 
@@ -256,6 +280,64 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
                     _ => self.visit_expression(right),
                 }
             }
+            Expr::Range {
+                token,
+                from,
+                step_by,
+                to,
+            } => {
+                let from = self.visit_expression(from)?;
+                let to = self.visit_expression(to)?;
+
+                let step_by = if let Some(step_by) = step_by {
+                    Some(self.visit_expression(&step_by)?)
+                } else {
+                    None
+                };
+
+                let from_num = match from {
+                    Value::Number(num) => num,
+                    _ => {
+                        return Err(Error::type_error(
+                            TypeError::T003 { from, to, step_by },
+                            token.clone(),
+                        ))
+                    }
+                };
+
+                let to_num = match to {
+                    Value::Number(num) => num,
+                    _ => {
+                        return Err(Error::type_error(
+                            TypeError::T003 { from, to, step_by },
+                            token.clone(),
+                        ))
+                    }
+                };
+
+                let step_by_num = match step_by {
+                    None => 1.0,
+                    Some(value) => match value {
+                        Value::Number(num) => num,
+                        _ => {
+                            return Err(Error::type_error(
+                                TypeError::T003 {
+                                    from,
+                                    to,
+                                    step_by: Some(value),
+                                },
+                                token.clone(),
+                            ))
+                        }
+                    },
+                };
+
+                Ok(Value::Range {
+                    to: to_num,
+                    from: from_num,
+                    step_by: step_by_num,
+                })
+            }
         }
     }
 }
@@ -286,6 +368,40 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
                     self.visit_statement(then)?;
                 } else if let Some(eelse) = eelse {
                     self.visit_statement(eelse)?;
+                }
+            }
+            Stmt::While { condition, body } => {
+                while self.visit_expression(condition)?.is_truthy() {
+                    self.visit_statement(body)?;
+                }
+            }
+            Stmt::For {
+                identifier,
+                range,
+                body,
+            } => {
+                if let Value::Range { to, from, step_by } = self.visit_expression(range)? {
+                    if (step_by > 0.0 && to <= from) || (step_by < 0.0 && from <= to) {
+                        return Err(Error::runtime_error(
+                            RuntimeError::R003 { from, to, step_by },
+                            match range {
+                                Expr::Range { token, from: _, step_by: _, to:_ } => token.clone(),
+                                _ => panic!("Stmt::For created with faulty range expression. This is an internal ono error")
+                            }
+                        ));
+                    }
+
+                    let mut num = to.min(from);
+                    let dest = to.max(from);
+                    self.environment
+                        .define(&identifier.lexeme, Value::Number(num));
+                    while num < dest {
+                        self.environment
+                            .assign(&identifier.lexeme, Value::Number(num))
+                            .unwrap();
+                        self.visit_statement(&body)?;
+                        num += step_by;
+                    }
                 }
             }
         };

@@ -22,6 +22,10 @@ pub enum SyntaxError {
     S008,
     /// Expected block
     S009,
+    /// Expected keyword
+    S010 { keyword: String },
+    /// Expected range operator
+    S011,
 }
 
 pub enum TypeError {
@@ -29,6 +33,12 @@ pub enum TypeError {
     T001 { operand: Value },
     /// Binary operands mismatch
     T002 { left: Value, right: Value },
+    /// Range operand not a number
+    T003 {
+        from: Value,
+        to: Value,
+        step_by: Option<Value>,
+    },
 }
 
 pub enum RuntimeError {
@@ -36,6 +46,8 @@ pub enum RuntimeError {
     R001,
     /// Division by zero
     R002,
+    /// Bad range
+    R003 { from: f64, to: f64, step_by: f64 },
 }
 
 pub enum ErrorKind {
@@ -147,6 +159,14 @@ impl Error {
                 SyntaxError::S007 => format!("left-hand side is unassignable"),
                 SyntaxError::S008 => format!("expected '\"' closing string starting here"),
                 SyntaxError::S009 => format!("expected block, found '{}'", self.token.lexeme),
+                SyntaxError::S010 { keyword } => format!(
+                    "expected keyword '{}', found '{}'",
+                    keyword, self.token.lexeme
+                ),
+                SyntaxError::S011 => format!(
+                    "expected range operator '..', found '{}'",
+                    self.token.lexeme
+                ),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { operand } => {
@@ -162,10 +182,24 @@ impl Error {
                     self.token.lexeme,
                     right.display_type()
                 ),
+                TypeError::T003 { from, to, step_by } => format!(
+                    "cannot make range with '{}..{}{}'",
+                    from.display_type(),
+                    if let Some(step_by) = step_by {
+                        format!("{}..", step_by.display_type())
+                    } else {
+                        "".to_string()
+                    },
+                    to.display_type()
+                ),
             },
             ErrorKind::Runtime(errno) => match errno {
                 RuntimeError::R001 => format!("'{}' is not defined here", self.token.lexeme),
                 RuntimeError::R002 => format!("division by zero"),
+                RuntimeError::R003 { from, to, step_by } => format!(
+                    "bad range running from '{}' to '{}' with step '{}'",
+                    from, to, step_by
+                ),
             },
         };
 

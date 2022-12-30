@@ -1,4 +1,7 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    fmt,
+};
 
 use crate::interpreter::Value;
 
@@ -6,6 +9,15 @@ use crate::interpreter::Value;
 pub struct Environment {
     enclosing: Option<Box<Environment>>,
     values: HashMap<String, Value>,
+}
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Environment")
+            .field("enclosing", &self.enclosing)
+            .field("values", &self.values)
+            .finish()
+    }
 }
 
 impl Environment {
@@ -16,10 +28,22 @@ impl Environment {
         }
     }
 
-    pub fn new_nested(parent: &Environment) -> Self {
-        Self {
-            enclosing: Some(Box::new(parent.clone())),
+    pub fn nest(&mut self) {
+        let inner = Box::new(self.clone());
+        *self = Self {
+            enclosing: Some(inner),
             values: HashMap::new(),
+        }
+    }
+
+    pub fn pop(&mut self) {
+        let new_env = match &self.enclosing {
+            None => None,
+            Some(enclosing) => Some(enclosing.as_ref().clone()),
+        };
+
+        if let Some(new_env) = new_env {
+            *self = new_env;
         }
     }
 

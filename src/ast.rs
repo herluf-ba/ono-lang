@@ -31,6 +31,12 @@ pub enum Expr {
     Group {
         expr: Box<Expr>,
     },
+    Range {
+        token: Token,
+        from: Box<Expr>,
+        step_by: Option<Box<Expr>>,
+        to: Box<Expr>,
+    },
 }
 
 // Expressions implement the visitor pattern
@@ -58,6 +64,15 @@ pub enum Stmt {
         then: Box<Stmt>,
         eelse: Option<Box<Stmt>>,
     },
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+    },
+    For {
+        identifier: Token,
+        range: Expr,
+        body: Box<Stmt>,
+    },
 }
 
 pub trait StmtVisitor<T> {
@@ -76,6 +91,21 @@ impl ExprVisitor<String> for ExprPrinter {
             Expr::Unary { operator, expr } => {
                 format!("({} {})", operator, self.visit_expression(expr.as_ref()))
             }
+            Expr::Range {
+                to,
+                from,
+                step_by,
+                token: _,
+            } => format!(
+                "{}..{}{}",
+                self.visit_expression(from.as_ref()),
+                if let Some(step_by) = step_by {
+                    format!("{}..", self.visit_expression(step_by.as_ref()))
+                } else {
+                    "".to_string()
+                },
+                self.visit_expression(to.as_ref())
+            ),
             Expr::Binary {
                 operator,
                 left,
