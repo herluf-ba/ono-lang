@@ -109,10 +109,13 @@ impl Parser {
         }
     }
 
-    /// declaration -> let_declaration | statement ;
+    /// declaration -> let_declaration | function_declaration | statement ;
     fn declaration(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::LET]) {
             return self.let_declaration();
+        }
+        if self.is_token_of_kind(&[TokenKind::FUN]) {
+            return self.function_declaration();
         }
 
         self.statement()
@@ -144,7 +147,57 @@ impl Parser {
         }
     }
 
-    /// statement -> expression_statement | print_statement | if_statement | while_statement | for_statement | block ;
+    /// function_declaration -> "fun" function ;
+    /// function -> IDENTIFIER "(" parameters? ")" block ;
+    /// parameters -> IDENTIFIER ( "," IDENTIFIER )* ;
+    fn function_declaration(&mut self) -> Result<Stmt, Error> {
+        let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
+            Some(token) => token.clone(),
+            None => return Err(Error::syntax_error(SyntaxError::S004, self.peek().clone())),
+        };
+
+        let opening_paren = match self.consume(&TokenKind::LEFTPAREN) {
+            Some(token) => token.clone(),
+            None => return Err(Error::syntax_error(SyntaxError::S013, self.peek().clone())),
+        };
+
+        let mut params = Vec::new();
+        if !self.check(&TokenKind::RIGHTPAREN) {
+            loop {
+                if params.len() >= 255 {
+                    return Err(Error::syntax_error(SyntaxError::S012, self.peek().clone()));
+                }
+
+                match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
+                    Some(token) => params.push(token.clone()),
+                    None => {
+                        return Err(Error::syntax_error(SyntaxError::S004, self.peek().clone()))
+                    }
+                }
+
+                if !self.is_token_of_kind(&[TokenKind::COMMA]) {
+                    break;
+                }
+            }
+        }
+
+        if self.consume(&TokenKind::RIGHTPAREN).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S006, opening_paren));
+        }
+
+        let body = if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
+            self.block()?
+        } else {
+            return Err(Error::syntax_error(
+                SyntaxError::S009,
+                self.previous().clone(),
+            ));
+        };
+
+        Ok(Stmt::Function { name, params, body })
+    }
+
+    /// statement -> expression_statement | print_statement | return_statement | if_statement | while_statement | for_statement | block ;
     fn statement(&mut self) -> Result<Stmt, Error> {
         if self.is_token_of_kind(&[TokenKind::IF]) {
             return self.if_statement();
@@ -160,6 +213,10 @@ impl Parser {
 
         if self.is_token_of_kind(&[TokenKind::PRINT]) {
             return self.print_statement();
+        }
+
+        if self.is_token_of_kind(&[TokenKind::RETURN]) {
+            return self.return_statement();
         }
 
         if self.is_token_of_kind(&[TokenKind::LEFTBRACE]) {
@@ -193,6 +250,20 @@ impl Parser {
         }
 
         Ok(Stmt::Expression { expr })
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, Error> {
+        let keyword = self.previous().clone();
+        let mut expr = None;
+        if !self.check(&TokenKind::SEMICOLON) {
+            expr = Some(self.expression()?);
+        }
+
+        if self.consume(&TokenKind::SEMICOLON).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S005, self.peek().clone()));
+        }
+
+        Ok(Stmt::Return { keyword, expr })
     }
 
     /// print_statement -> "print" expression ";" ;
@@ -436,7 +507,7 @@ impl Parser {
         Ok(expr)
     }
 
-    // unary -> ("!" | "-") unary | primary ;
+    // unary -> ("!" | "-") unary | call ;
     fn unary(&mut self) -> Result<Expr, Error> {
         if self.is_token_of_kind(&[TokenKind::BANG, TokenKind::MINUS]) {
             return Ok(Expr::Unary {
@@ -444,7 +515,50 @@ impl Parser {
                 expr: Box::new(self.unary()?),
             });
         }
-        self.primary()
+        self.call()
+    }
+
+    // call -> primary ( "(" arguments? ")" )* ;
+    // arguments -> expression ("," expression )* ;
+    fn call(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.primary()?;
+        loop {
+            if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, Error> {
+        let opening_paren = self.peek().clone();
+        let mut arguments: Vec<Expr> = Vec::new();
+        if !self.check(&TokenKind::RIGHTPAREN) {
+            loop {
+                if arguments.len() > 255 {
+                    return Err(Error::syntax_error(SyntaxError::S012, self.peek().clone()));
+                }
+                arguments.push(self.expression()?);
+                if !self.is_token_of_kind(&[TokenKind::COMMA]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = match self.consume(&TokenKind::RIGHTPAREN) {
+            Some(token) => token,
+            None => return Err(Error::syntax_error(SyntaxError::S006, opening_paren)),
+        }
+        .clone();
+
+        Ok(Expr::Call {
+            callee: Box::new(callee),
+            paren,
+            arguments,
+        })
     }
 
     // primary -> NUMBER | STRING | "true" | "false" | "null" | "(" expression ")" ;

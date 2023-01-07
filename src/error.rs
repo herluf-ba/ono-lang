@@ -26,6 +26,10 @@ pub enum SyntaxError {
     S010 { keyword: String },
     /// Expected range operator
     S011,
+    /// Too many arguments passed to function
+    S012,
+    /// Expected function arguments
+    S013,
 }
 
 pub enum TypeError {
@@ -39,6 +43,10 @@ pub enum TypeError {
         to: Value,
         step_by: Option<Value>,
     },
+    /// Attempted to call non-function
+    T004 { callee: Value },
+    /// Wrong argument count
+    T005 { expected: usize, received: usize },
 }
 
 pub enum RuntimeError {
@@ -48,12 +56,16 @@ pub enum RuntimeError {
     R002,
     /// Bad range
     R003 { from: f64, to: f64, step_by: f64 },
+    /// System clock drifted
+    R004,
 }
 
 pub enum ErrorKind {
     Syntax(SyntaxError),
     Type(TypeError),
     Runtime(RuntimeError),
+    /// Used for early returning in function calls
+    Return(Value),
 }
 
 // Standard ono error type
@@ -86,6 +98,15 @@ impl Error {
     pub fn runtime_error(errno: RuntimeError, token: Token) -> Self {
         Self {
             kind: ErrorKind::Runtime(errno),
+            token,
+            file: None,
+            line_src: None,
+        }
+    }
+
+    pub fn return_error(value: Value, token: Token) -> Self {
+        Self {
+            kind: ErrorKind::Return(value),
             token,
             file: None,
             line_src: None,
@@ -136,6 +157,7 @@ impl Error {
             ErrorKind::Syntax(_) => "error",
             ErrorKind::Type(_) => "type error",
             ErrorKind::Runtime(_) => "runtime error",
+            ErrorKind::Return(_) => panic!("Uncaught return error. This is a language error"),
         }
         .bright_red();
 
@@ -153,7 +175,7 @@ impl Error {
                         "(" => ")",
                         "\"" => "\"",
                         "[" => "]",
-                        _ => panic!("Unhandled opener"),
+                        _ => panic!("Unhandled opener. This is a language error"),
                     }
                 ),
                 SyntaxError::S007 => format!("left-hand side is unassignable"),
@@ -167,6 +189,8 @@ impl Error {
                     "expected range operator '..', found '{}'",
                     self.token.lexeme
                 ),
+                SyntaxError::S012 => format!("functions can have no more than 255 arguments"),
+                SyntaxError::S013 => format!("expected parameters, found '{}'", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { operand } => {
@@ -192,6 +216,12 @@ impl Error {
                     },
                     to.display_type()
                 ),
+                TypeError::T004 { callee } => {
+                    format!("cannot call type '{}'", callee.display_type())
+                }
+                TypeError::T005 { expected, received } => {
+                    format!("expected {} arguments, found {}", expected, received)
+                }
             },
             ErrorKind::Runtime(errno) => match errno {
                 RuntimeError::R001 => format!("'{}' is not defined here", self.token.lexeme),
@@ -200,7 +230,9 @@ impl Error {
                     "bad range running from '{}' to '{}' with step '{}'",
                     from, to, step_by
                 ),
+                RuntimeError::R004 => format!("system clock drifted"),
             },
+            ErrorKind::Return(_) => panic!("Uncaught return error! this is a language error"),
         };
 
         format!("{}: {}", identifier, message).bold().to_string()

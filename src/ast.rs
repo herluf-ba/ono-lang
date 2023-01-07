@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::lexer::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Literal {
         value: Token,
@@ -37,6 +37,11 @@ pub enum Expr {
         step_by: Option<Box<Expr>>,
         to: Box<Expr>,
     },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>,
+    },
 }
 
 // Expressions implement the visitor pattern
@@ -44,7 +49,7 @@ pub trait ExprVisitor<T> {
     fn visit_expression(&mut self, e: &Expr) -> T;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expression {
         expr: Expr,
@@ -72,6 +77,15 @@ pub enum Stmt {
         identifier: Token,
         range: Expr,
         body: Box<Stmt>,
+    },
+    Function {
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+    },
+    Return {
+        keyword: Token,
+        expr: Option<Expr>,
     },
 }
 
@@ -127,6 +141,19 @@ impl ExprVisitor<String> for ExprPrinter {
                 self.visit_expression(right.as_ref()),
             ),
             Expr::Group { expr } => format!("(group {})", self.visit_expression(expr.as_ref())),
+            Expr::Call {
+                callee,
+                paren: _,
+                arguments,
+            } => format!(
+                "{}({})",
+                self.visit_expression(callee.as_ref()),
+                arguments
+                    .iter()
+                    .map(|e| { self.visit_expression(e) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }

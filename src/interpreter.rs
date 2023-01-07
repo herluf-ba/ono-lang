@@ -2,12 +2,16 @@ use crate::{
     ast::*,
     environment::Environment,
     error::{Error, RuntimeError, SyntaxError, TypeError},
+    functions::{self, Func},
+    functions::{Function, NativeFunction},
     lexer::{Token, TokenKind},
 };
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    NativeFunction(NativeFunction),
+    Function(Function),
     Range { to: f64, from: f64, step_by: f64 },
     Bool(bool),
     Text(String),
@@ -18,6 +22,14 @@ pub enum Value {
 impl Value {
     fn is_equal(&self, other: &Value) -> bool {
         match self {
+            Value::NativeFunction(f1) => match other {
+                Value::NativeFunction(f2) => f1.name == f2.name,
+                _ => false,
+            },
+            Value::Function(f1) => match other {
+                Value::Function(f2) => f1.name.lexeme == f2.name.lexeme,
+                _ => false,
+            },
             Value::Range { to, from, step_by } => match other {
                 Value::Range {
                     to: o_to,
@@ -54,17 +66,19 @@ impl Value {
     }
 
     pub fn display_type(&self) -> String {
-        String::from(match self {
-            Value::Bool(_) => "boolean",
+        match self {
+            Value::Function(func) => format!("function<{}>", func.name),
+            Value::NativeFunction(func) => format!("function<{}>", func.name),
+            Value::Bool(_) => "boolean".to_string(),
             Value::Range {
                 to: _,
                 from: _,
                 step_by: _,
-            } => "range",
-            Value::Text(_) => "string",
-            Value::Number(_) => "number",
-            Value::Null => "null",
-        })
+            } => "range".to_string(),
+            Value::Text(_) => "string".to_string(),
+            Value::Number(_) => "number".to_string(),
+            Value::Null => "null".to_string(),
+        }
     }
 }
 
@@ -98,18 +112,20 @@ impl Display for Value {
             Value::Text(v) => write!(f, "{}", v),
             Value::Number(v) => write!(f, "{}", v),
             Value::Null => write!(f, "null"),
+            Value::Function(func) => write!(f, "{}({})", func.name, func.params.join(", ")),
+            Value::NativeFunction(func) => write!(f, "NativeFunction<{}>", func.name),
         }
     }
 }
 
 pub struct Interpreter {
-    environment: Environment,
+    pub environment: Environment,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: Environment::new(),
+            environment: functions::create_global_environment(),
         }
     }
 
@@ -117,17 +133,6 @@ impl Interpreter {
         for statement in statements {
             self.visit_statement(&statement)?;
         }
-        Ok(())
-    }
-
-    pub fn execute_block(&mut self, statements: &Vec<Stmt>) -> Result<(), Error> {
-        self.environment.nest();
-
-        for statement in statements {
-            self.visit_statement(&statement)?;
-        }
-
-        self.environment.pop();
         Ok(())
     }
 
@@ -233,6 +238,28 @@ impl Interpreter {
             _ => Err(Error::syntax_error(SyntaxError::S001, operator.clone())),
         }
     }
+
+    fn prepare_func_args(
+        &mut self,
+        expected: usize,
+        arguments: &Vec<Expr>,
+        open_paren: &Token,
+    ) -> Result<Vec<Value>, Error> {
+        if arguments.len() != expected {
+            return Err(Error::type_error(
+                TypeError::T005 {
+                    expected,
+                    received: arguments.len(),
+                },
+                open_paren.clone(),
+            ));
+        }
+
+        Ok(arguments
+            .iter()
+            .map(|arg| self.visit_expression(arg))
+            .collect::<Result<Vec<Value>, Error>>()?)
+    }
 }
 
 impl ExprVisitor<Result<Value, Error>> for Interpreter {
@@ -240,7 +267,9 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
         match e {
             Expr::Literal { value } => Ok(Value::from(value)),
             Expr::Variable { name } => match self.environment.get(&name.lexeme) {
-                Some(value) => Ok((*value).clone()),
+                // TODO: This clone makes it impossible to modify a value once it has been got.
+                // Consider making this a mut reference (huge refactor)
+                Some(value) => Ok(value.clone()),
                 None => Err(Error::runtime_error(RuntimeError::R001, name.clone())),
             },
             Expr::Assign { name, expr } => {
@@ -338,6 +367,24 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
                     step_by: step_by_num,
                 })
             }
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => {
+                let callee = self.visit_expression(&callee)?;
+                match callee {
+                    Value::Function(mut callee) => {
+                        let args = self.prepare_func_args(callee.arity(), arguments, paren)?;
+                        callee.call(self, args, paren)
+                    }
+                    Value::NativeFunction(mut callee) => {
+                        let args = self.prepare_func_args(callee.arity(), arguments, paren)?;
+                        callee.call(self, args, paren)
+                    }
+                    callee => Err(Error::type_error(TypeError::T004 { callee }, paren.clone())),
+                }
+            }
         }
     }
 }
@@ -354,7 +401,11 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
                 self.environment.define(&name.lexeme, value)
             }
             Stmt::Block { statements } => {
-                self.execute_block(statements)?;
+                self.environment.nest();
+                for statement in statements {
+                    self.visit_statement(&statement)?;
+                }
+                self.environment.pop();
             }
             Stmt::If {
                 condition,
@@ -403,6 +454,25 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
                         num += step_by;
                     }
                 }
+            }
+            Stmt::Function { name, params, body } => self.environment.define(
+                &name.lexeme,
+                Value::Function(Function {
+                    name: name.clone(),
+                    params: params
+                        .iter()
+                        .map(|p| p.lexeme.clone())
+                        .collect::<Vec<String>>(),
+                    body: body.clone(),
+                    closure: self.environment.new_nested(),
+                }),
+            ),
+            Stmt::Return { keyword, expr } => {
+                let value = match expr {
+                    Some(expr) => self.visit_expression(expr)?,
+                    None => Value::Null,
+                };
+                return Err(Error::return_error(value, keyword.clone()));
             }
         };
         Ok(())

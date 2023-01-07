@@ -28,6 +28,14 @@ impl Environment {
         }
     }
 
+    pub fn new_nested(&self) -> Self {
+        let inner = Box::new(self.clone());
+        Self {
+            enclosing: Some(inner),
+            values: HashMap::new(),
+        }
+    }
+
     pub fn nest(&mut self) {
         let inner = Box::new(self.clone());
         *self = Self {

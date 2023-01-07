@@ -6,6 +6,7 @@ use std::path::Path;
 mod ast;
 mod environment;
 mod error;
+mod functions;
 mod interpreter;
 mod lexer;
 mod parser;
