@@ -11,3 +11,5 @@ fun makeCounter () {
 let counter = makeCounter();
 counter();
 counter();
+counter();
+counter();

@@ -6,7 +6,11 @@ use crate::{
     functions::{Function, NativeFunction},
     lexer::{Token, TokenKind},
 };
-use std::fmt::{Debug, Display};
+use std::{
+    cell::RefCell,
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -21,39 +25,22 @@ pub enum Value {
 
 impl Value {
     fn is_equal(&self, other: &Value) -> bool {
-        match self {
-            Value::NativeFunction(f1) => match other {
-                Value::NativeFunction(f2) => f1.name == f2.name,
-                _ => false,
-            },
-            Value::Function(f1) => match other {
-                Value::Function(f2) => f1.name.lexeme == f2.name.lexeme,
-                _ => false,
-            },
-            Value::Range { to, from, step_by } => match other {
+        match (self, other) {
+            (Value::NativeFunction(f1), Value::NativeFunction(f2)) => f1.name == f2.name,
+            (Value::Function(f1), Value::Function(f2)) => f1.name.lexeme == f2.name.lexeme,
+            (Value::Bool(s), Value::Bool(o)) => s == o,
+            (Value::Text(s), Value::Text(o)) => s == o,
+            (Value::Number(s), Value::Number(o)) => s == o,
+            (Value::Null, Value::Null) => true,
+            (
+                Value::Range { to, from, step_by },
                 Value::Range {
                     to: o_to,
                     from: o_from,
                     step_by: o_step_by,
-                } => to == o_to && from == o_from && o_step_by == step_by,
-                _ => false,
-            },
-            Value::Bool(s) => match other {
-                Value::Bool(o) => s == o,
-                _ => false,
-            },
-            Value::Text(s) => match other {
-                Value::Text(o) => s == o,
-                _ => false,
-            },
-            Value::Number(s) => match other {
-                Value::Number(o) => s == o,
-                _ => false,
-            },
-            Value::Null => match other {
-                Value::Null => true,
-                _ => false,
-            },
+                },
+            ) => to == o_to && from == o_from && o_step_by == step_by,
+            (_, _) => false,
         }
     }
 
@@ -119,13 +106,13 @@ impl Display for Value {
 }
 
 pub struct Interpreter {
-    pub environment: Environment,
+    pub environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: functions::create_global_environment(),
+            environment: Rc::new(RefCell::new(functions::create_global_environment())),
         }
     }
 
@@ -266,16 +253,17 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
     fn visit_expression(&mut self, e: &Expr) -> Result<Value, Error> {
         match e {
             Expr::Literal { value } => Ok(Value::from(value)),
-            Expr::Variable { name } => match self.environment.get(&name.lexeme) {
-                // TODO: This clone makes it impossible to modify a value once it has been got.
-                // Consider making this a mut reference (huge refactor)
-                // Really it should be Rc<Refcell<Value>> (yea?)
+            Expr::Variable { name } => match self.environment.borrow_mut().get(&name.lexeme) {
                 Some(value) => Ok(value.clone()),
                 None => Err(Error::runtime_error(RuntimeError::R001, name.clone())),
             },
             Expr::Assign { name, expr } => {
                 let val = self.visit_expression(expr)?;
-                match self.environment.assign(&name.lexeme, val.clone()) {
+                match self
+                    .environment
+                    .borrow_mut()
+                    .assign(&name.lexeme, val.clone())
+                {
                     Ok(_) => {}
                     Err(_) => return Err(Error::runtime_error(RuntimeError::R001, name.clone())),
                 }
@@ -399,14 +387,19 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
             Stmt::Print { expr } => println!("{}", self.visit_expression(expr)?),
             Stmt::Let { name, initializer } => {
                 let value = self.visit_expression(initializer)?;
-                self.environment.define(&name.lexeme, value)
+                self.environment.borrow_mut().define(&name.lexeme, value)
             }
             Stmt::Block { statements } => {
-                self.environment.nest();
+                {
+                    self.environment.borrow_mut().nest()
+                };
                 for statement in statements {
                     self.visit_statement(&statement)?;
                 }
-                self.environment.pop();
+
+                {
+                    self.environment.borrow_mut().pop()
+                };
             }
             Stmt::If {
                 condition,
@@ -446,9 +439,11 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
                     let mut num = to.min(from);
                     let dest = to.max(from);
                     self.environment
+                        .borrow_mut()
                         .define(&identifier.lexeme, Value::Number(num));
                     while num < dest {
                         self.environment
+                            .borrow_mut()
                             .assign(&identifier.lexeme, Value::Number(num))
                             .unwrap();
                         self.visit_statement(&body)?;
@@ -456,18 +451,23 @@ impl StmtVisitor<Result<(), Error>> for Interpreter {
                     }
                 }
             }
-            Stmt::Function { name, params, body } => self.environment.define(
-                &name.lexeme,
-                Value::Function(Function {
+            Stmt::Function { name, params, body } => {
+                let closure = {
+                    Rc::new(RefCell::new(
+                        self.environment.borrow_mut().clone().new_nested(),
+                    ))
+                };
+                let function = Value::Function(Function {
                     name: name.clone(),
                     params: params
                         .iter()
                         .map(|p| p.lexeme.clone())
                         .collect::<Vec<String>>(),
                     body: body.clone(),
-                    closure: self.environment.new_nested(),
-                }),
-            ),
+                    closure,
+                });
+                self.environment.borrow_mut().define(&name.lexeme, function)
+            }
             Stmt::Return { keyword, expr } => {
                 let value = match expr {
                     Some(expr) => self.visit_expression(expr)?,

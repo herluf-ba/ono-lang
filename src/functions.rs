@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     ast::{Stmt, StmtVisitor},
     environment::Environment,
@@ -11,7 +13,7 @@ pub struct Function {
     pub name: Token,
     pub params: Vec<String>,
     pub body: Vec<Stmt>,
-    pub closure: Environment,
+    pub closure: Rc<RefCell<Environment>>,
 }
 
 pub trait Func {
@@ -39,7 +41,10 @@ impl Func for Function {
         interpreter.environment = self.closure.clone();
 
         for (i, arg) in arguments.iter().enumerate() {
-            interpreter.environment.define(&self.params[i], arg.clone());
+            interpreter
+                .environment
+                .borrow_mut()
+                .define(&self.params[i], arg.clone());
         }
 
         let mut return_value = Value::Null;
