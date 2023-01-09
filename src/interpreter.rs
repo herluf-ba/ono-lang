@@ -269,6 +269,7 @@ impl ExprVisitor<Result<Value, Error>> for Interpreter {
             Expr::Variable { name } => match self.environment.get(&name.lexeme) {
                 // TODO: This clone makes it impossible to modify a value once it has been got.
                 // Consider making this a mut reference (huge refactor)
+                // Really it should be Rc<Refcell<Value>> (yea?)
                 Some(value) => Ok(value.clone()),
                 None => Err(Error::runtime_error(RuntimeError::R001, name.clone())),
             },
