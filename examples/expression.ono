@@ -1,7 +1,0 @@
-let a = 1;
-let b = 2;
-let bla = "bla";
-let c;
-print b;
-print a + b;
-print c;

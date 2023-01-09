@@ -5,7 +5,7 @@ use crate::{
     environment::Environment,
     error::{Error, ErrorKind, RuntimeError},
     interpreter::{Interpreter, Value},
-    lexer::{Token, TokenKind},
+    token::{Position, Token, TokenKind},
 };
 
 #[derive(Debug, Clone)]
@@ -117,12 +117,7 @@ fn nf_clock(_arguments: Vec<Value>) -> Result<Value, Error> {
         Err(_) => Err(Error {
             file: None,
             line_src: None,
-            token: Token {
-                kind: TokenKind::NULL,
-                lexeme: "".to_string(),
-                row: 0,
-                column: 0,
-            },
+            token: Token::new(TokenKind::UNKNOWN, Position::new(0, 0), ""),
             kind: ErrorKind::Runtime(RuntimeError::R004),
         }),
     }

@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::error::{Error, SyntaxError};
-use crate::lexer::{Token, TokenKind};
+use crate::token::{Token, TokenKind};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -94,8 +94,11 @@ impl Parser {
             }
 
             match self.peek().kind {
-                TokenKind::CLASS
-                | TokenKind::FUN
+                TokenKind::FUN
+                | TokenKind::TRAIT
+                | TokenKind::OBJ
+                | TokenKind::MATCH
+                | TokenKind::ENUM
                 | TokenKind::LET
                 | TokenKind::FOR
                 | TokenKind::IF
@@ -121,26 +124,18 @@ impl Parser {
         self.statement()
     }
 
-    /// let_declaration -> "let" IDENTIFIER ( "=" expression )? ";" ;
+    /// let_declaration -> "let" IDENTIFIER "=" expression ";" ;
     fn let_declaration(&mut self) -> Result<Stmt, Error> {
         let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
             Some(token) => token.clone(),
             None => return Err(Error::syntax_error(SyntaxError::S004, self.peek().clone())),
         };
 
-        let mut initializer = Expr::Literal {
-            value: Token {
-                kind: TokenKind::NULL,
-                lexeme: "".to_string(),
-                row: 0,
-                column: 0,
-            },
-        };
-
-        if self.is_token_of_kind(&[TokenKind::EQUAL]) {
-            initializer = self.expression()?;
+        if self.consume(&TokenKind::EQUAL).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S014, self.peek().clone()));
         }
 
+        let initializer = self.expression()?;
         match self.consume(&TokenKind::SEMICOLON) {
             Some(_) => Ok(Stmt::Let { name, initializer }),
             None => Err(Error::syntax_error(SyntaxError::S005, self.peek().clone())),

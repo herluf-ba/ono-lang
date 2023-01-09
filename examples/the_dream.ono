@@ -28,7 +28,6 @@ obj Animal {
 	name: string,
 	nickname: string?,
 	quirks: [string]
-
 }
 
 // traits are used to generalize behavior

@@ -10,6 +10,7 @@ mod functions;
 mod interpreter;
 mod lexer;
 mod parser;
+mod token;
 
 use error::*;
 use interpreter::Interpreter;
@@ -84,7 +85,7 @@ impl Program {
     }
 
     fn report_error(&self, error: &mut Error) {
-        error.with_src_line(&self.lines[error.token.row]);
+        error.with_src_line(&self.lines[error.token.position.line]);
 
         if let Some(filename) = &self.current_filename {
             error.with_filename(&filename);

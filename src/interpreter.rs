@@ -4,7 +4,7 @@ use crate::{
     error::{Error, RuntimeError, SyntaxError, TypeError},
     functions::{self, Func},
     functions::{Function, NativeFunction},
-    lexer::{Token, TokenKind},
+    token::{Token, TokenKind},
 };
 use std::{
     cell::RefCell,

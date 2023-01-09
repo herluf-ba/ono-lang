@@ -1,106 +1,8 @@
-use std::fmt::Display;
-
+use crate::{
+    error::{Error, SyntaxError},
+    token::{Position, Token, TokenKind},
+};
 use unicode_segmentation::UnicodeSegmentation;
-
-use crate::error::{Error, SyntaxError};
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum TokenKind {
-    // Single-character tokens
-    LEFTPAREN,
-    RIGHTPAREN,
-    LEFTBRACE,
-    RIGHTBRACE,
-    COMMA,
-    DOT,
-    DOTDOT,
-    MINUS,
-    PLUS,
-    SEMICOLON,
-    SLASH,
-    STAR,
-
-    // Comparators
-    BANG,
-    BANGEQUAL,
-    EQUAL,
-    EQUALEQUAL,
-    GREATER,
-    GREATEREQUAL,
-    LESS,
-    LESSEQUAL,
-
-    // Literals()
-    IDENTIFIER(String),
-    STRING(String),
-    NUMBER(f64),
-
-    // KEYWORDS
-    AND,
-    CLASS,
-    ELSE,
-    FALSE,
-    FUN,
-    FOR,
-    IF,
-    NULL,
-    OR,
-    IN,
-    PRINT,
-    RETURN,
-    SUPER,
-    SELF,
-    TRUE,
-    LET,
-    WHILE,
-
-    // Internal
-    EOF,
-}
-
-impl TokenKind {
-    pub fn is_same(&self, other: &TokenKind) -> bool {
-        //Compare only by variant
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub lexeme: String,
-    pub row: usize,
-    pub column: usize,
-}
-
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.lexeme)
-    }
-}
-
-fn identifier_token_kind(c: &str) -> TokenKind {
-    match c {
-        "and" => TokenKind::AND,
-        "class" => TokenKind::CLASS,
-        "else" => TokenKind::ELSE,
-        "false" => TokenKind::FALSE,
-        "for" => TokenKind::FOR,
-        "fun" => TokenKind::FUN,
-        "if" => TokenKind::IF,
-        "in" => TokenKind::IN,
-        "null" => TokenKind::NULL,
-        "or" => TokenKind::OR,
-        "print" => TokenKind::PRINT,
-        "return" => TokenKind::RETURN,
-        "super" => TokenKind::SUPER,
-        "self" => TokenKind::SELF,
-        "true" => TokenKind::TRUE,
-        "let" => TokenKind::LET,
-        "while" => TokenKind::WHILE,
-        s => TokenKind::IDENTIFIER(s.to_string()),
-    }
-}
 
 fn is_digit(c: &str) -> bool {
     match c {
@@ -118,7 +20,7 @@ fn is_alpha_numeric(c: &str) -> bool {
 }
 
 pub struct Lexer {
-    pub tokens: Vec<Token>,
+    tokens: Vec<Token>,
     graphemes: Vec<String>,
     start: usize,
     current: usize,
@@ -138,29 +40,32 @@ impl Lexer {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.tokens = Vec::new();
-        self.graphemes = Vec::new();
-        self.current = 0;
-        self.start = 0;
-        self.column = 0;
-    }
-
+    /// Produces a `Vec` of tokens
     pub fn tokenize(&mut self, src: &str) -> Result<Vec<Token>, Vec<Error>> {
-        let mut errors: Vec<Error> = Vec::new();
+        // Split src into UTF-8 graphemes
         self.graphemes = UnicodeSegmentation::graphemes(src, true)
             .map(String::from)
             .collect::<Vec<String>>();
+
+        let mut errors: Vec<Error> = Vec::new();
         while !self.is_at_end() {
             self.start = self.current;
             if let Err(error) = self.scan_token() {
                 errors.push(error);
             }
         }
+
+        // Add end of file
         self.add_token(TokenKind::EOF);
-        let tokens = self.tokens.clone();
-        self.reset();
-        self.line += 1;
+
+        // Reset internal state for a new tokenization
+        let tokens = std::mem::replace(&mut self.tokens, Vec::new());
+        self.graphemes = Vec::new();
+        self.current = 0;
+        self.start = 0;
+        self.column = 0;
+        self.line = 0;
+
         if errors.len() > 0 {
             Err(errors)
         } else {
@@ -168,14 +73,16 @@ impl Lexer {
         }
     }
 
+    fn current_position(&self) -> Position {
+        Position::new(self.line, self.column)
+    }
+
     fn add_token(&mut self, kind: TokenKind) {
-        let lexeme = self.graphemes[self.start..self.current].join("");
-        self.tokens.push(Token {
+        self.tokens.push(Token::new(
             kind,
-            lexeme,
-            row: self.line,
-            column: self.column,
-        });
+            self.current_position(),
+            &self.graphemes[self.start..self.current].join(""),
+        ));
     }
 
     fn is_at_end(&self) -> bool {
@@ -204,7 +111,6 @@ impl Lexer {
             return false;
         }
 
-        // Increment current if we found the expected grapheme
         self.advance();
         true
     }
@@ -227,6 +133,7 @@ impl Lexer {
         let c = self.advance();
 
         match c.as_str() {
+            "\n" | " " | "\t" => {}
             "(" => self.add_token(TokenKind::LEFTPAREN),
             ")" => self.add_token(TokenKind::RIGHTPAREN),
             "{" => self.add_token(TokenKind::LEFTBRACE),
@@ -242,8 +149,10 @@ impl Lexer {
             "-" => self.add_token(TokenKind::MINUS),
             "+" => self.add_token(TokenKind::PLUS),
             ";" => self.add_token(TokenKind::SEMICOLON),
+            ":" => self.add_token(TokenKind::COLON),
             "*" => self.add_token(TokenKind::STAR),
             "/" => self.add_token(TokenKind::SLASH),
+            "?" => self.add_token(TokenKind::QUESTIONMARK),
             "!" => {
                 if self.is_next("=") {
                     self.add_token(TokenKind::BANGEQUAL);
@@ -272,14 +181,11 @@ impl Lexer {
                     self.add_token(TokenKind::GREATER);
                 }
             }
-
-            // Comments
             "#" => loop {
                 if self.advance() == "\n" {
                     break;
                 }
             },
-
             "\"" => {
                 if let Err(error) = self.string() {
                     return Err(error);
@@ -287,22 +193,14 @@ impl Lexer {
             }
             s if is_digit(s) => self.number(),
             s if is_alpha(s) => self.identifier(),
-
-            // Ignore whitespace
-            "\n" | " " | "\t" => {}
-
             _ => {
                 return Err(Error::syntax_error(
                     SyntaxError::S002,
-                    Token {
-                        kind: TokenKind::NULL, // This is wrong but the kind is unknown here
-                        lexeme: c,
-                        row: self.line,
-                        column: self.column,
-                    },
+                    Token::new(TokenKind::UNKNOWN, self.current_position(), &c),
                 ));
             }
         };
+
         Ok(())
     }
 
@@ -317,12 +215,11 @@ impl Lexer {
         if self.is_at_end() {
             return Err(Error::syntax_error(
                 SyntaxError::S008,
-                Token {
-                    kind: TokenKind::NULL, // This is wrong but theres no '"' TokenKind
-                    row: opening_row,
-                    column: opening_column,
-                    lexeme: self.peek(),
-                },
+                Token::new(
+                    TokenKind::UNKNOWN,
+                    Position::new(opening_row, opening_column),
+                    "\"",
+                ),
             ));
         }
 
@@ -359,6 +256,32 @@ impl Lexer {
         }
 
         let lexeme = self.graphemes[(self.start)..(self.current)].join("");
-        self.add_token(identifier_token_kind(&lexeme))
+        let token = match lexeme.as_str() {
+            "match" => TokenKind::MATCH,
+            "trait" => TokenKind::TRAIT,
+            "enum" => TokenKind::ENUM,
+            "obj" => TokenKind::OBJ,
+            "some" => TokenKind::SOME,
+            "none" => TokenKind::NONE,
+            "has" => TokenKind::HAS,
+            "and" => TokenKind::AND,
+            "else" => TokenKind::ELSE,
+            "false" => TokenKind::FALSE,
+            "for" => TokenKind::FOR,
+            "fun" => TokenKind::FUN,
+            "if" => TokenKind::IF,
+            "in" => TokenKind::IN,
+            "null" => TokenKind::NULL,
+            "or" => TokenKind::OR,
+            "print" => TokenKind::PRINT,
+            "return" => TokenKind::RETURN,
+            "self" => TokenKind::SELF,
+            "true" => TokenKind::TRUE,
+            "let" => TokenKind::LET,
+            "while" => TokenKind::WHILE,
+            s => TokenKind::IDENTIFIER(s.to_string()),
+        };
+
+        self.add_token(token)
     }
 }

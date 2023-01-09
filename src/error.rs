@@ -1,7 +1,7 @@
 use colored::Colorize;
 use std::fmt;
 
-use crate::{interpreter::Value, lexer::Token};
+use crate::{interpreter::Value, token::Token};
 
 pub enum SyntaxError {
     /// Unknown operator
@@ -30,6 +30,8 @@ pub enum SyntaxError {
     S012,
     /// Expected function arguments
     S013,
+    /// Expected variable initializer
+    S014,
 }
 
 pub enum TypeError {
@@ -125,10 +127,10 @@ impl Error {
         match &self.line_src {
             None => String::new(),
             Some(src) => {
-                let row_str = format!("{} | ", self.token.row + 1);
+                let row_str = format!("{} | ", self.token.position.line + 1);
                 let column_indicator = {
                     let spaces = std::iter::repeat(" ")
-                        .take(row_str.len() + self.token.column - self.token.lexeme.len())
+                        .take(row_str.len() + self.token.position.column - self.token.lexeme.len())
                         .collect::<String>();
                     let arrows = std::iter::repeat("^")
                         .take(self.token.lexeme.len())
@@ -146,7 +148,11 @@ impl Error {
         match &self.file {
             None => String::new(),
             Some(filename) => {
-                let position = format!(" {}:{}", self.token.row + 1, self.token.column);
+                let position = format!(
+                    " {}:{}",
+                    self.token.position.line + 1,
+                    self.token.position.column
+                );
                 format!("-> {}{}", filename, position).cyan().to_string()
             }
         }
@@ -191,6 +197,7 @@ impl Error {
                 ),
                 SyntaxError::S012 => format!("functions can have no more than 255 arguments"),
                 SyntaxError::S013 => format!("expected parameters, found '{}'", self.token.lexeme),
+                SyntaxError::S014 => format!("expected initializer, found '{}'", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { operand } => {
