@@ -1,28 +1,19 @@
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-mod ast;
-mod environment;
 mod error;
-mod functions;
-mod interpreter;
 mod lexer;
-mod parser;
-mod token;
+mod types;
 
-use error::*;
-use interpreter::Interpreter;
+use error::Error;
 use lexer::Lexer;
-use parser::Parser;
 
-struct Program {
+/// Represents an entire program (may span multiple files).
+pub struct Program {
     current_filename: Option<String>,
     lines: Vec<String>,
     lexer: Lexer,
-    parser: Parser,
-    interpreter: Interpreter,
 }
 
 impl Program {
@@ -31,43 +22,14 @@ impl Program {
             current_filename: None,
             lines: Vec::new(),
             lexer: Lexer::new(),
-            parser: Parser::new(),
-            interpreter: Interpreter::new(),
         }
     }
 
-    pub fn feed(&mut self, src: String) -> Result<(), ()> {
-        self.lines
-            .extend(src.split('\n').map(String::from).collect::<Vec<String>>());
-
-        let tokens = match self.lexer.tokenize(&src) {
-            Ok(tokens) => tokens,
-            Err(errors) => {
-                self.report_errors(errors);
-                return Err(());
-            }
-        };
-
-        //println!("{:#?}", tokens);
-        let statements = match self.parser.parse(tokens) {
-            Ok(statements) => statements,
-            Err(errors) => {
-                self.report_errors(errors);
-                return Err(());
-            }
-        };
-        //println!("{:#?}", statements);
-
-        match self.interpreter.interpret(statements) {
-            Ok(_) => Ok(()),
-            Err(mut error) => {
-                self.report_error(&mut error);
-                return Err(());
-            }
-        }
-    }
-
-    fn feed_file(&mut self, filename: &str) -> Result<(), ()> {
+    /// Feed a file to the program. It is resolved and type checked immidiately.
+    /// Referenced files are automatically gathered and consumed too.
+    /// Any errors are reported to stdout.
+    /// The entire program is valid and ready to `run` when this has finished.
+    pub fn feed_file(&mut self, filename: &str) -> Result<(), ()> {
         self.current_filename = Some(filename.to_string());
         let path = Path::new(&filename);
         let mut file = match File::open(&path) {
@@ -81,7 +43,24 @@ impl Program {
             Ok(_) => {}
         };
 
-        self.feed(src)
+        self.lines
+            .extend(src.split('\n').map(String::from).collect::<Vec<String>>());
+
+        let tokens = match self.lexer.tokenize(&src) {
+            Ok(tokens) => tokens,
+            Err(errors) => {
+                self.report_errors(errors);
+                return Err(());
+            }
+        };
+
+        println!("{:#?}", tokens);
+
+        Ok(())
+    }
+
+    pub fn run(&self) -> Result<(), ()> {
+        unimplemented!();
     }
 
     fn report_error(&self, error: &mut Error) {
@@ -94,53 +73,27 @@ impl Program {
         println!("{}", error);
     }
 
-    fn report_errors(&self, errors: Vec<Error>) {
-        for mut error in errors {
+    fn report_errors(&self, mut errors: Vec<Error>) {
+        for mut error in &mut errors {
             self.report_error(&mut error);
         }
+
+        println!("Program exited with {} errors", errors.len())
     }
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
 
-    if args.len() > 2 {
+    if args.len() != 2 {
         panic!("Usage: ono [script?]");
     }
 
     let mut program = Program::new();
-
-    if args.len() == 2 {
-        match program.feed_file(&args[1]) {
-            Err(_) => {}
+    if program.feed_file(&args[1]).is_ok() {
+        match program.run() {
             Ok(_) => {}
+            Err(_) => {}
         }
-    } else {
-        run_prompt(program);
-    }
-}
-
-fn prompt_user() {
-    print!("> ");
-    std::io::stdout().flush().unwrap()
-}
-
-fn run_prompt(mut program: Program) {
-    prompt_user();
-    for line in std::io::stdin().lines() {
-        let text = match line {
-            Err(why) => panic!("couldn't read line: {}", why),
-            Ok(text) => text,
-        };
-
-        match text.as_str() {
-            "exit" => return (),
-            _ => match program.feed(text) {
-                Err(_) => {}
-                Ok(_) => println!("{}", "todo"),
-            },
-        }
-
-        prompt_user();
     }
 }

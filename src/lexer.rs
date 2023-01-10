@@ -1,14 +1,11 @@
 use crate::{
     error::{Error, SyntaxError},
-    token::{Position, Token, TokenKind},
+    types::{Position, Token, TokenKind},
 };
 use unicode_segmentation::UnicodeSegmentation;
 
 fn is_digit(c: &str) -> bool {
-    match c {
-        "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => true,
-        _ => false,
-    }
+    matches!(c, "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
 }
 
 fn is_alpha(c: &str) -> bool {
@@ -20,10 +17,15 @@ fn is_alpha_numeric(c: &str) -> bool {
 }
 
 pub struct Lexer {
+    /// Contains tokens produced so far
     tokens: Vec<Token>,
+    /// Graphemes being tokenized
     graphemes: Vec<String>,
+    /// Start of the current token being read
     start: usize,
+    /// Current read head
     current: usize,
+    /// Src position
     line: usize,
     column: usize,
 }
@@ -40,7 +42,7 @@ impl Lexer {
         }
     }
 
-    /// Produces a `Vec` of tokens
+    /// Produces a `Vec` of tokens by splitting into UTF-8 graphemes and doing a single pass
     pub fn tokenize(&mut self, src: &str) -> Result<Vec<Token>, Vec<Error>> {
         // Split src into UTF-8 graphemes
         self.graphemes = UnicodeSegmentation::graphemes(src, true)
@@ -136,23 +138,10 @@ impl Lexer {
             "\n" | " " | "\t" => {}
             "(" => self.add_token(TokenKind::LEFTPAREN),
             ")" => self.add_token(TokenKind::RIGHTPAREN),
-            "{" => self.add_token(TokenKind::LEFTBRACE),
-            "}" => self.add_token(TokenKind::RIGHTBRACE),
-            "," => self.add_token(TokenKind::COMMA),
-            "." => {
-                if self.is_next(".") {
-                    self.add_token(TokenKind::DOTDOT);
-                } else {
-                    self.add_token(TokenKind::DOT);
-                }
-            }
             "-" => self.add_token(TokenKind::MINUS),
             "+" => self.add_token(TokenKind::PLUS),
-            ";" => self.add_token(TokenKind::SEMICOLON),
-            ":" => self.add_token(TokenKind::COLON),
             "*" => self.add_token(TokenKind::STAR),
             "/" => self.add_token(TokenKind::SLASH),
-            "?" => self.add_token(TokenKind::QUESTIONMARK),
             "!" => {
                 if self.is_next("=") {
                     self.add_token(TokenKind::BANGEQUAL);
@@ -192,10 +181,10 @@ impl Lexer {
                 }
             }
             s if is_digit(s) => self.number(),
-            s if is_alpha(s) => self.identifier(),
+            s if is_alpha(s) => self.keyword(),
             _ => {
                 return Err(Error::syntax_error(
-                    SyntaxError::S002,
+                    SyntaxError::S001,
                     Token::new(TokenKind::UNKNOWN, self.current_position(), &c),
                 ));
             }
@@ -214,7 +203,7 @@ impl Lexer {
 
         if self.is_at_end() {
             return Err(Error::syntax_error(
-                SyntaxError::S008,
+                SyntaxError::S002,
                 Token::new(
                     TokenKind::UNKNOWN,
                     Position::new(opening_row, opening_column),
@@ -250,38 +239,300 @@ impl Lexer {
         self.add_token(TokenKind::NUMBER(value.parse::<f64>().unwrap()))
     }
 
-    fn identifier(&mut self) {
+    fn keyword(&mut self) {
         while is_alpha_numeric(&self.peek()) {
             self.advance();
         }
 
         let lexeme = self.graphemes[(self.start)..(self.current)].join("");
         let token = match lexeme.as_str() {
-            "match" => TokenKind::MATCH,
-            "trait" => TokenKind::TRAIT,
-            "enum" => TokenKind::ENUM,
-            "obj" => TokenKind::OBJ,
-            "some" => TokenKind::SOME,
-            "none" => TokenKind::NONE,
-            "has" => TokenKind::HAS,
             "and" => TokenKind::AND,
-            "else" => TokenKind::ELSE,
             "false" => TokenKind::FALSE,
-            "for" => TokenKind::FOR,
-            "fun" => TokenKind::FUN,
-            "if" => TokenKind::IF,
-            "in" => TokenKind::IN,
-            "null" => TokenKind::NULL,
             "or" => TokenKind::OR,
-            "print" => TokenKind::PRINT,
-            "return" => TokenKind::RETURN,
-            "self" => TokenKind::SELF,
             "true" => TokenKind::TRUE,
-            "let" => TokenKind::LET,
-            "while" => TokenKind::WHILE,
-            s => TokenKind::IDENTIFIER(s.to_string()),
+            _ => todo!("identifier"),
         };
 
         self.add_token(token)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use TokenKind::*;
+
+    #[test]
+    fn tokenizes() -> Result<(), Vec<Error>> {
+        let mut lexer = Lexer::new();
+        let src = r#"( ) - + / * ! != = == > >= < <= true false and or "test" 123 123.45"#;
+        let tokens = lexer.tokenize(src)?;
+
+        let target = vec![
+            Token {
+                kind: LEFTPAREN,
+                lexeme: "(".to_string(),
+                position: Position { line: 0, column: 1 },
+            },
+            Token {
+                kind: RIGHTPAREN,
+                lexeme: ")".to_string(),
+                position: Position { line: 0, column: 3 },
+            },
+            Token {
+                kind: MINUS,
+                lexeme: "-".to_string(),
+                position: Position { line: 0, column: 5 },
+            },
+            Token {
+                kind: PLUS,
+                lexeme: "+".to_string(),
+                position: Position { line: 0, column: 7 },
+            },
+            Token {
+                kind: SLASH,
+                lexeme: "/".to_string(),
+                position: Position { line: 0, column: 9 },
+            },
+            Token {
+                kind: STAR,
+                lexeme: "*".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 11,
+                },
+            },
+            Token {
+                kind: BANG,
+                lexeme: "!".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 13,
+                },
+            },
+            Token {
+                kind: BANGEQUAL,
+                lexeme: "!=".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 16,
+                },
+            },
+            Token {
+                kind: EQUAL,
+                lexeme: "=".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 18,
+                },
+            },
+            Token {
+                kind: EQUALEQUAL,
+                lexeme: "==".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 21,
+                },
+            },
+            Token {
+                kind: GREATER,
+                lexeme: ">".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 23,
+                },
+            },
+            Token {
+                kind: GREATEREQUAL,
+                lexeme: ">=".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 26,
+                },
+            },
+            Token {
+                kind: LESS,
+                lexeme: "<".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 28,
+                },
+            },
+            Token {
+                kind: LESSEQUAL,
+                lexeme: "<=".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 31,
+                },
+            },
+            Token {
+                kind: TRUE,
+                lexeme: "true".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 36,
+                },
+            },
+            Token {
+                kind: FALSE,
+                lexeme: "false".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 42,
+                },
+            },
+            Token {
+                kind: AND,
+                lexeme: "and".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 46,
+                },
+            },
+            Token {
+                kind: OR,
+                lexeme: "or".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 49,
+                },
+            },
+            Token {
+                kind: STRING("test".to_string()),
+                lexeme: "\"test\"".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 56,
+                },
+            },
+            Token {
+                kind: NUMBER(123.0),
+                lexeme: "123".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 60,
+                },
+            },
+            Token {
+                kind: NUMBER(123.45),
+                lexeme: "123.45".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 67,
+                },
+            },
+            Token {
+                kind: EOF,
+                lexeme: "123.45".to_string(),
+                position: Position {
+                    line: 0,
+                    column: 67,
+                },
+            },
+        ];
+
+        assert_eq!(tokens, target);
+        Ok(())
+    }
+
+    #[test]
+    fn handles_comments() -> Result<(), Vec<Error>> {
+        let mut lexer = Lexer::new();
+        let src = r###"
+            # This is a comment
+            1 + 2
+            # Comment with '#'
+            1 + 2 # this is an inline comment so that we dont also + 3
+        "###;
+
+        let tokens = lexer.tokenize(src)?;
+        let target = vec![
+            Token {
+                kind: NUMBER(1.0),
+                lexeme: "1".to_string(),
+                position: Position {
+                    line: 2,
+                    column: 13,
+                },
+            },
+            Token {
+                kind: PLUS,
+                lexeme: "+".to_string(),
+                position: Position {
+                    line: 2,
+                    column: 15,
+                },
+            },
+            Token {
+                kind: NUMBER(2.0),
+                lexeme: "2".to_string(),
+                position: Position {
+                    line: 2,
+                    column: 17,
+                },
+            },
+            Token {
+                kind: NUMBER(1.0),
+                lexeme: "1".to_string(),
+                position: Position {
+                    line: 4,
+                    column: 13,
+                },
+            },
+            Token {
+                kind: PLUS,
+                lexeme: "+".to_string(),
+                position: Position {
+                    line: 4,
+                    column: 15,
+                },
+            },
+            Token {
+                kind: NUMBER(2.0),
+                lexeme: "2".to_string(),
+                position: Position {
+                    line: 4,
+                    column: 17,
+                },
+            },
+            Token {
+                kind: EOF,
+                lexeme: " ".to_string(),
+                position: Position { line: 5, column: 8 },
+            },
+        ];
+        assert_eq!(tokens, target);
+        Ok(())
+    }
+
+    #[test]
+    fn errors_on_unexpected_symbol() -> Result<(), Vec<Error>> {
+        let mut lexer = Lexer::new();
+        let src = "💩";
+
+        assert_eq!(
+            lexer.tokenize(src),
+            Err(vec![Error::syntax_error(
+                SyntaxError::S001,
+                Token::new(TokenKind::UNKNOWN, Position::new(0, 1), src)
+            )])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn errors_on_unterminated_string() -> Result<(), Vec<Error>> {
+        let mut lexer = Lexer::new();
+        let src = "\"whoops forgot to terminate this one";
+
+        assert_eq!(
+            lexer.tokenize(src),
+            Err(vec![Error::syntax_error(
+                SyntaxError::S002,
+                Token::new(TokenKind::UNKNOWN, Position::new(0, 1), "\"")
+            )])
+        );
+        Ok(())
     }
 }

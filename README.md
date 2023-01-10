@@ -8,7 +8,7 @@ However, feel free to clone, modify and reuse any part of it if it brings you an
 `ono` is a typed scripting language inspired by rust and typescript.
 It features optionals, tuples, iterators, enums, pattern matching and traits.
 
-This should help get a feel for the language:
+This should help you get a feel for the language:
 
 ```ono
 // imports are done using a 'use' statement. 
@@ -21,8 +21,8 @@ use my_other_module::*;
 // This one only brings 'Enum' and 'Obj' into scope
 use my_other_other_module::{Enum, Obj};
 
-// primitive types are number, bool, string
-// any type can be made optional using 'type?'. This wraps the value in 'some(value)' or 'none'.
+// primitive types are Number, Bool, String
+// any type can be made optional using 'type?'. This wraps the value in 'Some(value)' or 'None'.
 // any type can made into an iterable list using '[type]'
 // all values are truthy except 'false', none and empty list.
 
@@ -36,20 +36,20 @@ enum Species {
 // custom types are defined using object definitions
 obj Animal {
  species: Species,
- name: string,
- nickname: string?,
- quirks: [string]
+ name: String,
+ nickname: String?,
+ quirks: [String]
 }
 
 // traits are used to generalize behavior
 trait Speak {
  // traits define a number of functions that make up the trait
- fn speak(self) -> string;
+ fn speak(self): String;
 }
 
 // objects implement traits using a 'make' statement
 make Animal Speak {
- fn speak(self) -> string {
+ fn speak(self): String {
   // if the last line of a block is an expression
   // that expression is automatically returned
   // Also formatted strings work like this:
@@ -76,15 +76,15 @@ fn main() {
 
    // match expressions 
    let formatted_nickname = match harold.nickname {
-    some(nickname) => nickname,
-  none => ""
+     Some(nickname) => nickname,
+     None => ""
    };
 
    // 'or' can provide a fallback for an optional
    let cooler_format = harold.nickname or "";
 
    // optionals can be used for control flow using 'if let'
-   if let some(nickname) = harold.nickname {
+   if let Some(nickname) = harold.nickname {
     // use nickname here
    }
    
@@ -97,9 +97,9 @@ fn main() {
 
    // Empty iterables are falsey
    if harold.quirks {
-  for quirk in harold.quirks {
-   print(f"I've got {quirk}");
-  }
+     for quirk in harold.quirks {
+        print(f"I've got {quirk}");
+     }
    }
 }
 ```

@@ -1,24 +1,13 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
-    // Single-character tokens
     LEFTPAREN,
     RIGHTPAREN,
-    LEFTBRACE,
-    RIGHTBRACE,
-    COMMA,
-    DOT,
-    DOTDOT,
     MINUS,
     PLUS,
-    COLON,
-    SEMICOLON,
     SLASH,
     STAR,
-    QUESTIONMARK,
-
-    // Comparators
     BANG,
     BANGEQUAL,
     EQUAL,
@@ -27,39 +16,12 @@ pub enum TokenKind {
     GREATEREQUAL,
     LESS,
     LESSEQUAL,
-
-    // Literals()
-    IDENTIFIER(String),
-    STRING(String),
-    NUMBER(f64),
     TRUE,
     FALSE,
-    SOME,
-    NONE,
-
-    // Boolean operators
     AND,
     OR,
-
-    // Keywords
-    LET,
-    IF,
-    ELSE,
-    MATCH,
-    HAS,
-    TRAIT,
-    ENUM,
-    OBJ,
-    FUN,
-    RETURN,
-    SELF,
-    WHILE,
-    FOR,
-    IN,
-
-    // To be removed
-    PRINT,
-    NULL,
+    STRING(String),
+    NUMBER(f64),
 
     // Internal
     EOF,
@@ -72,7 +34,7 @@ impl TokenKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
@@ -90,7 +52,7 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub lexeme: String,
