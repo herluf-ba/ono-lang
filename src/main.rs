@@ -27,7 +27,7 @@ impl Program {
 
     /// Feed a file to the program. It is resolved and type checked immidiately.
     /// Referenced files are automatically gathered and consumed too.
-    /// Any errors are reported to stdout.
+    ///  Any errors are reported to stdout.
     /// The entire program is valid and ready to `run` when this has finished.
     pub fn feed_file(&mut self, filename: &str) -> Result<(), ()> {
         self.current_filename = Some(filename.to_string());
