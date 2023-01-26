@@ -48,7 +48,6 @@ impl Program {
             }
         };
 
-        //println!("{:#?}", tokens);
         let statements = match self.parser.parse(tokens) {
             Ok(statements) => statements,
             Err(errors) => {
@@ -56,7 +55,6 @@ impl Program {
                 return Err(());
             }
         };
-        //println!("{:#?}", statements);
 
         match self.interpreter.interpret(statements) {
             Ok(_) => Ok(()),
