@@ -10,7 +10,7 @@ It features optionals, tuples, iterators, enums, pattern matching and traits.
 
 This should help you get a feel for the language:
 
-```ono
+```rust
 // imports are done using a 'use' statement. 
 // This one makes everything in './my_module.ono' available via 'my_module::{something}';
 use my_module;
@@ -28,79 +28,79 @@ use my_other_other_module::{Enum, Obj};
 
 // enums can be used to described variants
 enum Species {
- Dog,
- Cat,
- Crocodile
+  Dog,
+  Cat,
+  Crocodile
 }
 
 // custom types are defined using object definitions
 obj Animal {
- species: Species,
- name: String,
- nickname: String?,
- quirks: [String]
+  species: Species,
+  name: String,
+  nickname: String?,
+  quirks: [String]
 }
 
 // traits are used to generalize behavior
 trait Speak {
- // traits define a number of functions that make up the trait
- fn speak(self): String;
+  // traits define a number of functions that make up the trait
+  fn speak(self): String;
 }
 
 // objects implement traits using a 'make' statement
 make Animal Speak {
- fn speak(self): String {
-  // if the last line of a block is an expression
-  // that expression is automatically returned
-  // Also formatted strings work like this:
-  f"Hi my name is {self.name}"
- }
+  fn speak(self): String {
+    // if the last line of a block is an expression
+    // that expression is automatically returned
+    // Also formatted strings work like this:
+    f"Hi my name is {self.name}"
+  }
 }
 
 // Automatic type conversions can be made using the into trait
 trait Into<T> {
-   fn into(self) -> T;
+  fn into(self) -> T;
 }
 
 // operator implementations can be made using traits too
 trait Add<T> {
- fn add(self, other: T) -> T;
+  fn add(self, other: T) -> T;
 }
 
 // 'main' is treated as entrypoint 
 fn main() {
-   // objects can be constructed like this.
-   // The type of variables is infered if possible
-   let harold = Animal { name: "Harold", species: Species::Crocodile };
-   harold.speak();
+  // objects can be constructed like this.
+  // The type of variables is infered if possible
+  let harold = Animal { name: "Harold", species: Species::Crocodile };
+  harold.speak();
 
-   // match expressions 
-   let formatted_nickname = match harold.nickname {
-     Some(nickname) => nickname,
-     None => ""
-   };
+  // match expressions 
+  let formatted_nickname = match harold.nickname {
+    Some(nickname) => nickname,
+    None => ""
+  };
 
-   // 'or' can provide a fallback for an optional
-   let cooler_format = harold.nickname or "";
+  // 'or' can provide a fallback for an optional
+  let cooler_format = harold.nickname or "";
 
-   // optionals can be used for control flow using 'if let'
-   if let Some(nickname) = harold.nickname {
+  // optionals can be used for control flow using 'if let'
+  if let Some(nickname) = harold.nickname {
     // use nickname here
-   }
-   
-   // a for loop may iterate any iterable. 
-   // ranges can be constructed using 'start..end' or 'start..=end' for inclusive end
-   for num in 0..harold.quirks.len() {
+  }
+
+  // a for loop may iterate any iterable. 
+  // ranges can be constructed using 'start..end' or 'start..=end' for inclusive end
+  for num in 0..harold.quirks.len() {
     // iterables can be indexed using 'iter[index]';
     let quirk = harold.quirks[num];
-   }
+  }
 
-   // Empty iterables are falsey
-   if harold.quirks {
-     for quirk in harold.quirks {
-        print(f"I've got {quirk}");
-     }
-   }
+  // Empty iterables are falsey
+  if harold.quirks {
+    for quirk in harold.quirks {
+      print(f"I have got {quirk}");
+    }
+  }
 }
 ```
 
