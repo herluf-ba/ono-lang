@@ -1,7 +1,7 @@
 use crate::types::Token;
 
 /// Represents a language construct that can be evaluated to a value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal {
         value: Token,

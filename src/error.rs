@@ -11,6 +11,10 @@ pub enum SyntaxError {
     S001,
     /// Unterminated string
     S002,
+    /// Unterminated parenthesis
+    S003,
+    /// Invalid expression
+    S004,
 }
 
 /// A type error.
@@ -121,6 +125,8 @@ impl Error {
                     format!("encountered unexpected symbol '{}'", self.token.lexeme)
                 }
                 SyntaxError::S002 => format!("unterminated string starting here"),
+                SyntaxError::S003 => format!("unterminated parenthesis starting here"),
+                SyntaxError::S004 => format!("expected an expression here"),
             },
             ErrorKind::Type(errno) => match errno {
                 _ => format!("{:#?}", errno),

@@ -22,6 +22,7 @@ pub enum TokenKind {
     OR,
     STRING(String),
     NUMBER(f64),
+    NULL,
 
     // Internal
     EOF,

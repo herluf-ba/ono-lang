@@ -4,16 +4,18 @@ use std::path::Path;
 
 mod error;
 mod lexer;
+mod parser;
 mod types;
 
 use error::Error;
 use lexer::Lexer;
 
-/// Represents an entire program (may span multiple files).
+use crate::parser::Parser;
+
+/// Represents an entire program
 pub struct Program {
     current_filename: Option<String>,
     lines: Vec<String>,
-    lexer: Lexer,
 }
 
 impl Program {
@@ -21,13 +23,11 @@ impl Program {
         Self {
             current_filename: None,
             lines: Vec::new(),
-            lexer: Lexer::new(),
         }
     }
 
     /// Feed a file to the program. It is resolved and type checked immidiately.
-    /// Referenced files are automatically gathered and consumed too.
-    ///  Any errors are reported to stdout.
+    /// Any errors are reported to stdout.
     /// The entire program is valid and ready to `run` when this has finished.
     pub fn feed_file(&mut self, filename: &str) -> Result<(), ()> {
         self.current_filename = Some(filename.to_string());
@@ -46,7 +46,8 @@ impl Program {
         self.lines
             .extend(src.split('\n').map(String::from).collect::<Vec<String>>());
 
-        let tokens = match self.lexer.tokenize(&src) {
+        let mut lexer = Lexer::new();
+        let tokens = match lexer.tokenize(&src) {
             Ok(tokens) => tokens,
             Err(errors) => {
                 self.report_errors(errors);
@@ -56,6 +57,13 @@ impl Program {
 
         println!("{:#?}", tokens);
 
+        let expr = match Parser::new().parse(tokens) {
+            Ok(expr) => expr,
+            Err(mut err) => {self.report_error(&mut err);
+            return Err(())},
+        };
+
+        println!("{:#?}", expr);
         Ok(())
     }
 
@@ -84,7 +92,6 @@ impl Program {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-
     if args.len() != 2 {
         panic!("Usage: ono [script?]");
     }
