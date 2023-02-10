@@ -59,8 +59,10 @@ impl Program {
 
         let expr = match Parser::new().parse(tokens) {
             Ok(expr) => expr,
-            Err(mut err) => {self.report_error(&mut err);
-            return Err(())},
+            Err(mut err) => {
+                self.report_error(&mut err);
+                return Err(());
+            }
         };
 
         println!("{:#?}", expr);
