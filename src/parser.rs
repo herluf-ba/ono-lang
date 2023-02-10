@@ -94,7 +94,7 @@ impl Parser {
     fn logic_and(&mut self) -> Result<Expr, Error> {
         let mut expr = self.equality()?;
 
-        while self.is_token_of_kind(&[TokenKind::OR]) {
+        while self.is_token_of_kind(&[TokenKind::AND]) {
             let operator = self.previous();
             expr = Expr::Logical {
                 operator: operator.clone(),
@@ -207,58 +207,23 @@ mod test {
     use Expr::*;
     use TokenKind::*;
 
-    // TODO: Test logical production
-    // TODO: Test unary production
+    // TODO: Test each production rule
     // TODO: Test errors that might be produced
-
+    
     #[test]
-    fn parses_logical_expression() -> Result<(), Error> {
-        let result = Parser::new().parse(vec![
-            Token {
-                kind: TRUE,
-                lexeme: "true".to_string(),
-                position: Position { line: 0, column: 4 },
-            },
-            Token {
-                kind: AND,
-                lexeme: "and".to_string(),
-                position: Position { line: 0, column: 8 },
-            },
-            Token {
-                kind: FALSE,
-                lexeme: "false".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 14,
-                },
-            },
-            Token {
-                kind: EOF,
-                lexeme: "\n".to_string(),
-                position: Position { line: 1, column: 0 },
-            },
-        ])?;
+    fn logical_or() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(TRUE, Position::new(0, 4), "true"),
+            Token::new(OR, Position::new(0, 8), "or"),
+            Token::new(FALSE, Position::new(0, 13), "false"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
 
-        let target = Binary {
-            operator: Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position { line: 0, column: 3 },
-            },
-            left: Box::new(Literal {
-                value: Token {
-                    kind: NUMBER(1.0),
-                    lexeme: "1".to_string(),
-                    position: Position { line: 0, column: 1 },
-                },
-            }),
-            right: Box::new(Literal {
-                value: Token {
-                    kind: NUMBER(2.0),
-                    lexeme: "2".to_string(),
-                    position: Position { line: 0, column: 5 },
-                },
-            }),
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Logical {
+            operator: tokens.get(1).unwrap().clone(),
+            left: Box::new(Literal { value: tokens.get(0).unwrap().clone() }),
+            right: Box::new(Literal { value: tokens.get(2).unwrap().clone() }),
         };
 
         assert_eq!(result, target);
@@ -266,52 +231,127 @@ mod test {
     }
 
     #[test]
-    fn parses_binary_expression() -> Result<(), Error> {
-        let result = Parser::new().parse(vec![
-            Token {
-                kind: NUMBER(1.0),
-                lexeme: "1".to_string(),
-                position: Position { line: 0, column: 1 },
-            },
-            Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position { line: 0, column: 3 },
-            },
-            Token {
-                kind: NUMBER(2.0),
-                lexeme: "2".to_string(),
-                position: Position { line: 0, column: 5 },
-            },
-            Token {
-                kind: EOF,
-                lexeme: "\n".to_string(),
-                position: Position { line: 1, column: 0 },
-            },
-        ])?;
+    fn logical_and() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(TRUE, Position::new(0, 4), "true"),
+            Token::new(AND, Position::new(0, 8), "and"),
+            Token::new(FALSE, Position::new(0, 14), "false"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
 
-        let target = Binary {
-            operator: Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position { line: 0, column: 3 },
-            },
-            left: Box::new(Literal {
-                value: Token {
-                    kind: NUMBER(1.0),
-                    lexeme: "1".to_string(),
-                    position: Position { line: 0, column: 1 },
-                },
-            }),
-            right: Box::new(Literal {
-                value: Token {
-                    kind: NUMBER(2.0),
-                    lexeme: "2".to_string(),
-                    position: Position { line: 0, column: 5 },
-                },
-            }),
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Logical {
+            operator: tokens.get(1).unwrap().clone(),
+            left: Box::new(Literal { value: tokens.get(0).unwrap().clone() }),
+            right: Box::new(Literal { value: tokens.get(2).unwrap().clone() }),
         };
 
+        assert_eq!(result, target);
+        Ok(())
+    }
+   
+    #[test]
+    fn comparison() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
+            Token::new(LESSEQUAL, Position::new(0, 3), "<="),
+            Token::new(NUMBER(2.0), Position::new(0, 6), "2"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Binary {
+            operator: tokens.get(1).unwrap().clone(),
+            left: Box::new(Literal { value: tokens.get(0).unwrap().clone() }),
+            right: Box::new(Literal { value: tokens.get(2).unwrap().clone() }),
+        };
+
+        assert_eq!(result, target);
+        Ok(())
+    }
+
+    #[test]
+    fn term() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
+            Token::new(PLUS, Position::new(0, 3), "+"),
+            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Binary {
+            operator: tokens.get(1).unwrap().clone(),
+            left: Box::new(Literal { value: tokens.get(0).unwrap().clone(), }),
+            right: Box::new(Literal { value: tokens.get(2).unwrap().clone(), }),
+        };
+
+        assert_eq!(result, target);
+        Ok(())
+    }
+    
+    #[test]
+    fn factor() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
+            Token::new(STAR, Position::new(0, 3), "*"),
+            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Binary {
+            operator: tokens.get(1).unwrap().clone(),
+            left: Box::new(Literal { value: tokens.get(0).unwrap().clone(), }),
+            right: Box::new(Literal { value: tokens.get(2).unwrap().clone(), }),
+        };
+
+        assert_eq!(result, target);
+        Ok(())
+    }
+    
+    #[test]
+    fn unary() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(MINUS, Position::new(0, 1), "-"),
+            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Unary {
+            operator: tokens.get(0).unwrap().clone(),
+            expr: Box::new(Literal { value: tokens.get(1).unwrap().clone(), }),
+        };
+
+        assert_eq!(result, target);
+        Ok(())
+    }
+    
+    #[test]
+    fn primary() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Literal { value: tokens.get(0).unwrap().clone(), };
+        assert_eq!(result, target);
+        Ok(())
+    }
+   
+    #[test]
+    fn primary_paren() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(LEFTPAREN, Position::new(0, 1), "("),
+            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
+            Token::new(RIGHTPAREN, Position::new(0, 1), ")"),
+            Token::new(EOF, Position::new(1, 0), "\n")
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Group { expr: Box::new(Literal { value: tokens.get(1).unwrap().clone() }) };
         assert_eq!(result, target);
         Ok(())
     }
