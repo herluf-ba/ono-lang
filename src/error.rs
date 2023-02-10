@@ -13,6 +13,8 @@ pub enum SyntaxError {
     S002,
     /// Unterminated parenthesis
     S003,
+    /// Expected expression
+    S004,
 }
 
 /// A type error.
@@ -41,6 +43,11 @@ pub struct Error {
     pub token: Token,
     pub file: Option<String>,
     pub line_src: Option<String>,
+}
+
+/// panics with a formatted language error
+pub fn language_error(message: &str) -> ! {
+    panic!("{}", format!("{} {}", "[ONO LANGUAGE ERROR]".red().bold(), message))
 }
 
 impl Error {
@@ -124,6 +131,7 @@ impl Error {
                 }
                 SyntaxError::S002 => format!("unterminated string starting here"),
                 SyntaxError::S003 => format!("unterminated parenthesis starting here"),
+                SyntaxError::S004 => format!("expected expression after '{}'", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
                 _ => format!("{:#?}", errno),

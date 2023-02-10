@@ -1,4 +1,4 @@
-use crate::error::{Error, SyntaxError};
+use crate::error::{Error, SyntaxError, language_error};
 use crate::types::{Expr, Token, TokenKind};
 
 /// ONO GRAMMAR ///
@@ -195,8 +195,7 @@ impl Parser {
                 })
             };
         }
-
-        panic!("[ONO COMPILER ERROR] parser bottomed out!");
+        Err(Error::syntax_error(SyntaxError::S004, self.previous().clone()))
     }
 }
 

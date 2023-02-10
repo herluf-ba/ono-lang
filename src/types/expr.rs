@@ -25,8 +25,3 @@ pub enum Expr {
     },
 }
 
-/// Implement an `ExprVisitor` to recursively walk an expression tree.
-/// Can be used to implement an interpreter but also things like a resolver or type checker.
-pub trait ExprVisitor<T> {
-    fn visit_expression(&mut self, e: &Expr) -> T;
-}
