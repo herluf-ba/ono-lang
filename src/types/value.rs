@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 use super::{Token, TokenKind};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Bool(bool),
     Text(String),
@@ -10,16 +10,6 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn is_equal(&self, other: &Value) -> bool {
-        match (self, other) {
-            (Value::Bool(s), Value::Bool(o)) => s == o,
-            (Value::Text(s), Value::Text(o)) => s == o,
-            (Value::Number(s), Value::Number(o)) => s == o,
-            (Value::Null, Value::Null) => true,
-            (_, _) => false,
-        }
-    }
-
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Null => false,

@@ -1,4 +1,4 @@
-use crate::error::{Error, SyntaxError, language_error};
+use crate::error::{Error, SyntaxError};
 use crate::types::{Expr, Token, TokenKind};
 
 /// ONO GRAMMAR ///
