@@ -110,6 +110,11 @@ fn main() {
 
 Get expressions working. Do some cleanup!
 
+todo: 
+-[x] Make Token::new() take start column instead of end. Refactor lexer and parser
+-[ ] Remove bang in favor of not 
+
+
 ### Feat: Type checking pass
 
 Do typechecking of expressions
