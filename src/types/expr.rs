@@ -6,6 +6,9 @@ pub enum Expr {
     Literal {
         value: Token,
     },
+    Tuple {
+        inners: Vec<Expr>,
+    },
     Unary {
         operator: Token,
         expr: Box<Expr>,

@@ -106,21 +106,15 @@ fn main() {
 
 ## Roadmap
 
-### Feat: Expressions
+### ✅ Feat: Expressions
 
 Get expressions working. Do some cleanup!
 
-todo: 
--[x] Make Token::new() take start column instead of end. Refactor lexer and parser
--[ ] Remove bang in favor of not
--[ ] Try to combine nested enums for token kinds like operators and literals.
-
-
-### Feat: Type checking pass
+### ✅ Feat: Type checking pass
 
 Do typechecking of expressions
 
-### Feat: Tuple expressions
+### ✅ Feat: Tuple expressions
 
 Implement tuples. Eliminate the null type in favor of unit tuple.
 

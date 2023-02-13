@@ -21,6 +21,12 @@ impl Typechecker {
         match e {
             Expr::Literal { value } => Ok(Type::from(value)),
             Expr::Group { expr } => self.visit_expression(expr),
+            Expr::Tuple { inners } => Ok(Type::Tuple(
+                inners
+                    .iter()
+                    .map(|expr| self.visit_expression(expr))
+                    .collect::<Result<Vec<Type>, Error>>()?,
+            )),
             Expr::Logical {
                 operator,
                 left,
@@ -36,7 +42,7 @@ impl Typechecker {
                 let operand = self.visit_expression(expr)?;
                 match operator.kind {
                     TokenKind::BANG => match operand {
-                        Type::Null | Type::Bool => Ok(Type::Bool),
+                        Type::Bool => Ok(Type::Bool),
                         _ => Err(Error::type_error(
                             TypeError::T002 { operand },
                             operator.clone(),
@@ -117,6 +123,37 @@ mod test {
     use pretty_assertions::assert_eq;
     use Expr::*;
     use TokenKind::*;
+
+
+    #[test]
+    fn tuple() -> Result<(), Vec<Error>> {
+        let expr = Tuple {
+            inners: vec![
+                Binary {
+                    left: Box::new(Literal {
+                        value: Token::new(NUMBER(1.0), 0, 0, "1"),
+                    }),
+                    operator: Token::new(PLUS, 0, 2, "+"),
+                    right: Box::new(Literal {
+                        value: Token::new(NUMBER(2.0), 0, 4, "2"),
+                    }),
+                },
+                Binary {
+                    left: Box::new(Literal {
+                        value: Token::new(NUMBER(3.0), 0, 6, "3"),
+                    }),
+                    operator: Token::new(PLUS, 0, 7, "+"),
+                    right: Box::new(Literal {
+                        value: Token::new(NUMBER(4.0), 0, 8, "4"),
+                    }),
+                },
+            ],
+        };
+
+        assert_eq!(Typechecker::new().check(expr)?, Type::Tuple(vec![Type::Number, Type::Number]));
+
+        Ok(())
+    }
 
     #[test]
     fn logical() -> Result<(), Vec<Error>> {

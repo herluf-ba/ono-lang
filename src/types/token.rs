@@ -4,31 +4,35 @@ use std::fmt::Display;
 pub enum TokenKind {
     LEFTPAREN,
     RIGHTPAREN,
+    COMMA,
+    EQUAL,
+
+    // Math operators
     MINUS,
     PLUS,
     SLASH,
     STAR,
-    BANG,
+
+    // Logical operators
     BANGEQUAL,
-    EQUAL,
     EQUALEQUAL,
     GREATER,
     GREATEREQUAL,
     LESS,
     LESSEQUAL,
-    TRUE,
-    FALSE,
+    BANG,
     AND,
     OR,
+
+    // Literals
     STRING(String),
     NUMBER(f64),
-    NULL,
+    TRUE,
+    FALSE,
 
     // Internal
     EOF,
     UNKNOWN,
-    /// Used for error formatting
-    COMPOSITE,
 }
 
 impl TokenKind {

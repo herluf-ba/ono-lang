@@ -142,6 +142,7 @@ impl Lexer {
             "+" => self.add_token(TokenKind::PLUS),
             "*" => self.add_token(TokenKind::STAR),
             "/" => self.add_token(TokenKind::SLASH),
+            "," => self.add_token(TokenKind::COMMA),
             "!" => {
                 if self.is_next("=") {
                     self.add_token(TokenKind::BANGEQUAL);
@@ -185,7 +186,12 @@ impl Lexer {
             _ => {
                 return Err(Error::syntax_error(
                     SyntaxError::S001,
-                    Token::new(TokenKind::UNKNOWN, self.line, self.column_end - (self.current - self.start), &c),
+                    Token::new(
+                        TokenKind::UNKNOWN,
+                        self.line,
+                        self.column_end - (self.current - self.start),
+                        &c,
+                    ),
                 ));
             }
         };
@@ -261,29 +267,30 @@ mod test {
 
     #[test]
     fn tokenizes() -> Result<(), Vec<Error>> {
-        let src = r#"( ) - + / * ! != = == > >= < <= true false and or "test" 123 123.45"#;
+        let src = r#"( , ) - + / * ! != = == > >= < <= true false and or "test" 123 123.45"#;
         let target = vec![
             Token::new(LEFTPAREN, 0, 0, "("),
-            Token::new(RIGHTPAREN, 0, 2, ")"),
-            Token::new(MINUS, 0, 4, "-"),
-            Token::new(PLUS, 0, 6, "+"),
-            Token::new(SLASH, 0, 8, "/"),
-            Token::new(STAR, 0, 10, "*"),
-            Token::new(BANG, 0, 12, "!"),
-            Token::new(BANGEQUAL, 0, 14, "!="),
-            Token::new(EQUAL, 0, 17, "="),
-            Token::new(EQUALEQUAL, 0, 19, "=="),
-            Token::new(GREATER, 0, 22, ">"),
-            Token::new(GREATEREQUAL, 0, 24, ">="),
-            Token::new(LESS, 0, 27, "<"),
-            Token::new(LESSEQUAL, 0, 29, "<="),
-            Token::new(TRUE, 0, 32, "true"),
-            Token::new(FALSE, 0, 37, "false"),
-            Token::new(AND, 0, 43, "and"),
-            Token::new(OR, 0, 47, "or"),
-            Token::new(STRING("test".to_string()), 0, 50, "\"test\""),
-            Token::new(NUMBER(123.0), 0, 57, "123"),
-            Token::new(NUMBER(123.45), 0, 61, "123.45"),
+            Token::new(COMMA, 0, 2, ","),
+            Token::new(RIGHTPAREN, 0, 4, ")"),
+            Token::new(MINUS, 0, 6, "-"),
+            Token::new(PLUS, 0, 8, "+"),
+            Token::new(SLASH, 0, 10, "/"),
+            Token::new(STAR, 0, 12, "*"),
+            Token::new(BANG, 0, 14, "!"),
+            Token::new(BANGEQUAL, 0, 16, "!="),
+            Token::new(EQUAL, 0, 19, "="),
+            Token::new(EQUALEQUAL, 0, 21, "=="),
+            Token::new(GREATER, 0, 24, ">"),
+            Token::new(GREATEREQUAL, 0, 26, ">="),
+            Token::new(LESS, 0, 29, "<"),
+            Token::new(LESSEQUAL, 0, 31, "<="),
+            Token::new(TRUE, 0, 34, "true"),
+            Token::new(FALSE, 0, 39, "false"),
+            Token::new(AND, 0, 45, "and"),
+            Token::new(OR, 0, 49, "or"),
+            Token::new(STRING("test".to_string()), 0, 52, "\"test\""),
+            Token::new(NUMBER(123.0), 0, 59, "123"),
+            Token::new(NUMBER(123.45), 0, 63, "123.45"),
             Token::new(EOF, 1, 0, "\n"),
         ];
 

@@ -18,6 +18,12 @@ impl Interpreter {
         match e {
             Expr::Literal { value } => Ok(Value::from(value)),
             Expr::Group { expr } => self.visit_expression(expr),
+            Expr::Tuple { inners } => Ok(Value::Tuple(
+                inners
+                    .iter()
+                    .map(|expr| self.visit_expression(expr))
+                    .collect::<Result<Vec<Value>, Error>>()?,
+            )),
             Expr::Logical {
                 operator,
                 left,
@@ -35,7 +41,6 @@ impl Interpreter {
                 let val = self.visit_expression(expr)?;
                 match operator.kind {
                     TokenKind::BANG => match val {
-                        Value::Null => Ok(Value::Bool(false)),
                         Value::Bool(v) => Ok(Value::Bool(!v)),
                         _ => language_error(&format!("non-negateable value")),
                     },
@@ -53,7 +58,7 @@ impl Interpreter {
             } => {
                 let left = self.visit_expression(left)?;
                 let right = self.visit_expression(right)?;
-                
+
                 if let Value::Number(l) = left {
                     if let Value::Number(r) = right {
                         match operator.kind {
@@ -71,22 +76,16 @@ impl Interpreter {
                             TokenKind::LESSEQUAL => return Ok(Value::Bool(l <= r)),
                             TokenKind::GREATER => return Ok(Value::Bool(l > r)),
                             TokenKind::GREATEREQUAL => return Ok(Value::Bool(l >= r)),
-                            _ => language_error(&format!(
-                                "unsupported binary operator '{}'",
-                                operator.lexeme
-                            )),
+                            _ => {},
                         }
                     }
                 }
 
                 if let Value::Text(ref l) = left {
-                    if let Value::Text(r) = right {
+                    if let Value::Text(ref r) = right {
                         match operator.kind {
                             TokenKind::PLUS => return Ok(Value::Text(format!("{}{}", l, r))),
-                            _ => language_error(&format!(
-                                "unsupported binary operator '{}'",
-                                operator.lexeme
-                            )),
+                            _ => {},
                         }
                     }
                 }
@@ -104,56 +103,102 @@ impl Interpreter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pretty_assertions::assert_eq;
     use crate::types::{Expr, Token, TokenKind, Value};
+    use pretty_assertions::assert_eq;
     use Expr::*;
     use TokenKind::*;
 
     #[test]
+    fn tuple() -> Result<(), Error> {
+        let expr = Tuple {
+            inners: vec![
+                Binary {
+                    left: Box::new(Literal {
+                        value: Token::new(NUMBER(1.0), 0, 0, "1"),
+                    }),
+                    operator: Token::new(PLUS, 0, 2, "+"),
+                    right: Box::new(Literal {
+                        value: Token::new(NUMBER(2.0), 0, 4, "2"),
+                    }),
+                },
+                Binary {
+                    left: Box::new(Literal {
+                        value: Token::new(NUMBER(3.0), 0, 6, "3"),
+                    }),
+                    operator: Token::new(PLUS, 0, 7, "+"),
+                    right: Box::new(Literal {
+                        value: Token::new(NUMBER(4.0), 0, 8, "4"),
+                    }),
+                },
+            ],
+        };
+
+        let result = Interpreter::new().interpret(expr)?;
+        assert_eq!(result, Value::Tuple(vec![Value::Number(3.0), Value::Number(7.0)]));
+        Ok(())
+    }
+
+    #[test]
     fn or() -> Result<(), Error> {
         let expr = Logical {
-            left: Box::new(Literal { value: Token::new(TRUE, 0, 0, "true"), }),
+            left: Box::new(Literal {
+                value: Token::new(TRUE, 0, 0, "true"),
+            }),
             operator: Token::new(OR, 0, 4, "or"),
-            right: Box::new(Literal { value: Token::new(FALSE, 0, 6, "false"), }),
+            right: Box::new(Literal {
+                value: Token::new(FALSE, 0, 6, "false"),
+            }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
         assert_eq!(result, Value::Bool(true));
         Ok(())
     }
-    
+
     #[test]
     fn addition() -> Result<(), Error> {
         let expr = Binary {
-            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
             operator: Token::new(PLUS, 0, 2, "+"),
-            right: Box::new(Literal { value: Token::new(NUMBER(2.0), 0, 4, "2"), }),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(2.0), 0, 4, "2"),
+            }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
         assert_eq!(result, Value::Number(3.0));
         Ok(())
     }
-   
+
     #[test]
     fn string_addition() -> Result<(), Error> {
         let expr = Binary {
-            left: Box::new(Literal { value: Token::new(STRING("foo".to_string()), 0, 0, "foo"), }),
+            left: Box::new(Literal {
+                value: Token::new(STRING("foo".to_string()), 0, 0, "foo"),
+            }),
             operator: Token::new(PLUS, 0, 4, "+"),
-            right: Box::new(Literal { value: Token::new(STRING("bar".to_string()), 0, 5, "bar"), }),
+            right: Box::new(Literal {
+                value: Token::new(STRING("bar".to_string()), 0, 5, "bar"),
+            }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
         assert_eq!(result, Value::Text("foobar".to_string()));
         Ok(())
     }
-    
+
     #[test]
     fn less() -> Result<(), Error> {
         let expr = Binary {
-            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
             operator: Token::new(LESS, 0, 2, "<"),
-            right: Box::new(Literal { value: Token::new(NUMBER(2.0), 0, 4, "2"), }),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(2.0), 0, 4, "2"),
+            }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
@@ -164,13 +209,23 @@ mod test {
     #[test]
     fn errors_on_division_by_zero() -> Result<(), Error> {
         let expr = Binary {
-            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
             operator: Token::new(SLASH, 0, 2, "/"),
-            right: Box::new(Literal { value: Token::new(NUMBER(0.0), 0, 4, "0"), }),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(0.0), 0, 4, "0"),
+            }),
         };
 
         let result = Interpreter::new().interpret(expr);
-        assert_eq!(result, Err(Error::runtime_error(RuntimeError::R001, Token::new(SLASH, 0, 2, "/"))));
+        assert_eq!(
+            result,
+            Err(Error::runtime_error(
+                RuntimeError::R001,
+                Token::new(SLASH, 0, 2, "/")
+            ))
+        );
         Ok(())
     }
 }

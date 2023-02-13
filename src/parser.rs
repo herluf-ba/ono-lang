@@ -10,7 +10,8 @@ use crate::types::{Expr, Token, TokenKind};
 /// term        -> factor ( ("-" | "+") factor )* ;
 /// factor      -> unary ( ("/" | "*") unary )* ;
 /// unary       -> ("!" | "-") unary | primary ;
-/// primary     -> NUMBER | STRING | "true" | "false" | "null" | "(" expression ")" ;
+/// primary     -> NUMBER | STRING | "true" | "false" | "null" | tuple ;
+/// tuple       -> "(" expression ( "," expression )* ")" ;
 
 /// Parses a Vec<Token> into an expression
 pub struct Parser {
@@ -174,7 +175,6 @@ impl Parser {
         if self.is_token_of_kind(&[
             TokenKind::FALSE,
             TokenKind::TRUE,
-            TokenKind::NULL,
             TokenKind::NUMBER(1.0),
             TokenKind::STRING("".to_string()),
         ]) {
@@ -184,27 +184,61 @@ impl Parser {
         }
 
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
-            let opening_token = self.previous().clone();
-            let expr = self.expression()?;
-
-            return if self.consume(&TokenKind::RIGHTPAREN).is_none() {
-                Err(Error::syntax_error(SyntaxError::S003, opening_token))
-            } else {
-                Ok(Expr::Group {
-                    expr: Box::new(expr),
-                })
-            };
+            return self.tuple();
         }
-        Err(Error::syntax_error(SyntaxError::S004, self.previous().clone()))
+
+        Err(Error::syntax_error(
+            SyntaxError::S004,
+            self.previous().clone(),
+        ))
+    }
+
+    fn tuple(&mut self) -> Result<Expr, Error> {
+        if self.consume(&TokenKind::RIGHTPAREN).is_some() {
+            return Ok(Expr::Tuple { inners: Vec::new() })
+        }
+
+        let opening_token = self.previous().clone();
+        let mut inners = vec![self.expression()?];
+        while let Some(_) = self.consume(&TokenKind::COMMA) {
+            inners.push(self.expression()?);
+        }
+
+        if self.consume(&TokenKind::RIGHTPAREN).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S003, opening_token))
+        }
+
+        if inners.len() == 1 {
+            Ok(Expr::Group {
+                expr: Box::new(inners.pop().unwrap()),
+            })
+        } else {
+            Ok(Expr::Tuple { inners })
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use pretty_assertions::assert_eq;
     use super::*;
+    use pretty_assertions::assert_eq;
     use Expr::*;
     use TokenKind::*;
+
+    #[test]
+    fn tuple_unit() -> Result<(), Error> {
+        let tokens = vec![
+            Token::new(LEFTPAREN, 0, 0, "("),
+            Token::new(RIGHTPAREN, 0, 1, ")"),
+            Token::new(EOF, 1, 0, "\n"),
+        ];
+
+        let result = Parser::new().parse(tokens.clone())?;
+        let target = Tuple { inners: vec![] };
+
+        assert_eq!(result, target);
+        Ok(())
+    }
 
     #[test]
     fn logical_or() -> Result<(), Error> {
@@ -349,7 +383,7 @@ mod test {
     #[test]
     fn primary() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(NUMBER(1.0), 0, 0 ,"1"),
+            Token::new(NUMBER(1.0), 0, 0, "1"),
             Token::new(EOF, 1, 0, "\n"),
         ];
 
