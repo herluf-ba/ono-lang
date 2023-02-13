@@ -27,6 +27,8 @@ pub enum TokenKind {
     // Internal
     EOF,
     UNKNOWN,
+    /// Used for error formatting
+    COMPOSITE,
 }
 
 impl TokenKind {
@@ -43,7 +45,10 @@ pub struct Position {
 
 impl Position {
     pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column }
+        Self {
+            line,
+            column,
+        }
     }
 }
 
@@ -61,10 +66,10 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, position: Position, lexeme: &str) -> Self {
+    pub fn new(kind: TokenKind, line: usize, column: usize, lexeme: &str) -> Self {
         Self {
             kind,
-            position,
+            position: Position::new(line, column),
             lexeme: lexeme.to_string(),
         }
     }
@@ -75,3 +80,4 @@ impl Display for Token {
         write!(f, "{}", self.lexeme)
     }
 }
+

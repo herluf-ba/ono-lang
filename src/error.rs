@@ -1,7 +1,7 @@
 use colored::Colorize;
 use std::fmt;
 
-use crate::types::Token;
+use crate::types::{Token, Type};
 
 /// A static syntax error.
 /// These are caught before running the program.
@@ -20,7 +20,12 @@ pub enum SyntaxError {
 /// A type error.
 /// These are caught before running the program.
 #[derive(Debug, PartialEq)]
-pub enum TypeError {}
+pub enum TypeError {
+    /// Binary operands type mismatch
+    T001 { left: Type, right: Type },
+    /// Unary operand type error
+    T002 { operand: Type }
+}
 
 /// Runtime errors chrash the program.
 #[derive(Debug, PartialEq)]
@@ -47,7 +52,10 @@ pub struct Error {
 
 /// panics with a formatted language error
 pub fn language_error(message: &str) -> ! {
-    panic!("{}", format!("{} {}", "[ONO LANGUAGE ERROR]".red().bold(), message))
+    panic!(
+        "{}",
+        format!("{} {}", "[ONO LANGUAGE ERROR]".red().bold(), message)
+    )
 }
 
 impl Error {
@@ -93,7 +101,7 @@ impl Error {
                 let row_str = format!("{} | ", self.token.position.line + 1);
                 let column_indicator = {
                     let spaces = std::iter::repeat(" ")
-                        .take(row_str.len() + self.token.position.column - self.token.lexeme.len())
+                        .take(row_str.len() + self.token.position.column)
                         .collect::<String>();
                     let arrows = std::iter::repeat("^")
                         .take(self.token.lexeme.len())
@@ -134,10 +142,20 @@ impl Error {
                 SyntaxError::S004 => format!("expected expression after '{}'", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
-                _ => format!("{:#?}", errno),
+                TypeError::T001 { left, right } => format!(
+                    "cannot '{} {} {}'",
+                    format!("{}", left).cyan(),
+                    self.token.lexeme,
+                    format!("{}", right).cyan()
+                ),
+                TypeError::T002 { operand } => format!(
+                    "cannot '{}{}'",
+                    self.token.lexeme,
+                    format!("{}", operand).cyan()
+                ),
             },
             ErrorKind::Runtime(errno) => match errno {
-                _ => format!("{:#?}", errno),
+                RuntimeError::R001 => format!("division by zero here"),
             },
         };
 

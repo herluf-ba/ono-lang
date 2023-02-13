@@ -7,11 +7,13 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod types;
+mod typechecker;
 
 use error::Error;
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
+use typechecker::Typechecker;
 
 /// Represents an entire program
 pub struct Program {
@@ -46,6 +48,8 @@ impl Program {
         self.lines
             .extend(src.split('\n').map(String::from).collect::<Vec<String>>());
 
+
+        // --- TOKENIZE --- //
         let mut lexer = Lexer::new();
         let tokens = match lexer.tokenize(&src) {
             Ok(tokens) => tokens,
@@ -57,6 +61,7 @@ impl Program {
 
         println!("{:#?}", tokens);
 
+        // --- PARSE --- //
         let expr = match Parser::new().parse(tokens) {
             Ok(expr) => expr,
             Err(err) => {
@@ -68,8 +73,20 @@ impl Program {
 
         println!("{:#?}", expr);
 
-        let mut interpreter = Interpreter::new();
-        let result = match interpreter.interpret(expr) {
+        // --- TYPE CHECK --- //
+        // TODO: Remove this clone
+        let ttype = match Typechecker::new().check(expr.clone()) {
+            Ok(ttype) => ttype,
+            Err(mut errors) => {
+                self.format_errors(&mut errors);
+                return Err(errors);
+            }
+        };
+
+        println!("{:#?}", ttype);
+
+        // --- INTERPRET --- //
+        let result = match Interpreter::new().interpret(expr) {
             Ok(value) => value,
             Err(err) => {
                 let mut errors = vec![err];

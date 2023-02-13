@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, SyntaxError},
-    types::{Position, Token, TokenKind},
+    types::{Token, TokenKind},
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -25,9 +25,11 @@ pub struct Lexer {
     start: usize,
     /// Current read head
     current: usize,
-    /// Src position
+    /// current line in src
     line: usize,
-    column: usize,
+    /// column number of current in src.
+    /// Note that this is not the column start of the lexeme but the end
+    column_end: usize,
 }
 
 impl Lexer {
@@ -38,7 +40,7 @@ impl Lexer {
             start: 0,
             current: 0,
             line: 0,
-            column: 0,
+            column_end: 0,
         }
     }
 
@@ -58,14 +60,15 @@ impl Lexer {
         }
 
         // Add end of file
-        self.add_token(TokenKind::EOF);
+        self.tokens
+            .push(Token::new(TokenKind::EOF, self.line + 1, 0, "\n"));
 
         // Reset internal state for a new tokenization
         let tokens = std::mem::replace(&mut self.tokens, Vec::new());
         self.graphemes = Vec::new();
         self.current = 0;
         self.start = 0;
-        self.column = 0;
+        self.column_end = 0;
         self.line = 0;
 
         if errors.len() > 0 {
@@ -75,14 +78,11 @@ impl Lexer {
         }
     }
 
-    fn current_position(&self) -> Position {
-        Position::new(self.line, self.column)
-    }
-
     fn add_token(&mut self, kind: TokenKind) {
         self.tokens.push(Token::new(
             kind,
-            self.current_position(),
+            self.line,
+            self.column_end - (self.current - self.start),
             &self.graphemes[self.start..self.current].join(""),
         ));
     }
@@ -95,10 +95,10 @@ impl Lexer {
         let grapheme = self.peek();
 
         self.current += 1;
-        self.column += 1;
+        self.column_end += 1;
         if grapheme == "\n" {
             self.line += 1;
-            self.column = 0;
+            self.column_end = 0;
         }
 
         grapheme
@@ -185,7 +185,7 @@ impl Lexer {
             _ => {
                 return Err(Error::syntax_error(
                     SyntaxError::S001,
-                    Token::new(TokenKind::UNKNOWN, self.current_position(), &c),
+                    Token::new(TokenKind::UNKNOWN, self.line, self.column_end - (self.current - self.start), &c),
                 ));
             }
         };
@@ -195,7 +195,7 @@ impl Lexer {
 
     fn string(&mut self) -> Result<(), Error> {
         let opening_row = self.line;
-        let opening_column = self.column;
+        let opening_column = self.column_end - 1;
 
         while self.peek() != "\"" && !self.is_at_end() {
             self.advance();
@@ -204,11 +204,7 @@ impl Lexer {
         if self.is_at_end() {
             return Err(Error::syntax_error(
                 SyntaxError::S002,
-                Token::new(
-                    TokenKind::UNKNOWN,
-                    Position::new(opening_row, opening_column),
-                    "\"",
-                ),
+                Token::new(TokenKind::UNKNOWN, opening_row, opening_column, "\""),
             ));
         }
 
@@ -260,185 +256,43 @@ impl Lexer {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pretty_assertions::assert_eq;
     use TokenKind::*;
 
     #[test]
     fn tokenizes() -> Result<(), Vec<Error>> {
-        let mut lexer = Lexer::new();
         let src = r#"( ) - + / * ! != = == > >= < <= true false and or "test" 123 123.45"#;
-        let tokens = lexer.tokenize(src)?;
-
         let target = vec![
-            Token {
-                kind: LEFTPAREN,
-                lexeme: "(".to_string(),
-                position: Position { line: 0, column: 1 },
-            },
-            Token {
-                kind: RIGHTPAREN,
-                lexeme: ")".to_string(),
-                position: Position { line: 0, column: 3 },
-            },
-            Token {
-                kind: MINUS,
-                lexeme: "-".to_string(),
-                position: Position { line: 0, column: 5 },
-            },
-            Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position { line: 0, column: 7 },
-            },
-            Token {
-                kind: SLASH,
-                lexeme: "/".to_string(),
-                position: Position { line: 0, column: 9 },
-            },
-            Token {
-                kind: STAR,
-                lexeme: "*".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 11,
-                },
-            },
-            Token {
-                kind: BANG,
-                lexeme: "!".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 13,
-                },
-            },
-            Token {
-                kind: BANGEQUAL,
-                lexeme: "!=".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 16,
-                },
-            },
-            Token {
-                kind: EQUAL,
-                lexeme: "=".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 18,
-                },
-            },
-            Token {
-                kind: EQUALEQUAL,
-                lexeme: "==".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 21,
-                },
-            },
-            Token {
-                kind: GREATER,
-                lexeme: ">".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 23,
-                },
-            },
-            Token {
-                kind: GREATEREQUAL,
-                lexeme: ">=".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 26,
-                },
-            },
-            Token {
-                kind: LESS,
-                lexeme: "<".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 28,
-                },
-            },
-            Token {
-                kind: LESSEQUAL,
-                lexeme: "<=".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 31,
-                },
-            },
-            Token {
-                kind: TRUE,
-                lexeme: "true".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 36,
-                },
-            },
-            Token {
-                kind: FALSE,
-                lexeme: "false".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 42,
-                },
-            },
-            Token {
-                kind: AND,
-                lexeme: "and".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 46,
-                },
-            },
-            Token {
-                kind: OR,
-                lexeme: "or".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 49,
-                },
-            },
-            Token {
-                kind: STRING("test".to_string()),
-                lexeme: "\"test\"".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 56,
-                },
-            },
-            Token {
-                kind: NUMBER(123.0),
-                lexeme: "123".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 60,
-                },
-            },
-            Token {
-                kind: NUMBER(123.45),
-                lexeme: "123.45".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 67,
-                },
-            },
-            Token {
-                kind: EOF,
-                lexeme: "123.45".to_string(),
-                position: Position {
-                    line: 0,
-                    column: 67,
-                },
-            },
+            Token::new(LEFTPAREN, 0, 0, "("),
+            Token::new(RIGHTPAREN, 0, 2, ")"),
+            Token::new(MINUS, 0, 4, "-"),
+            Token::new(PLUS, 0, 6, "+"),
+            Token::new(SLASH, 0, 8, "/"),
+            Token::new(STAR, 0, 10, "*"),
+            Token::new(BANG, 0, 12, "!"),
+            Token::new(BANGEQUAL, 0, 14, "!="),
+            Token::new(EQUAL, 0, 17, "="),
+            Token::new(EQUALEQUAL, 0, 19, "=="),
+            Token::new(GREATER, 0, 22, ">"),
+            Token::new(GREATEREQUAL, 0, 24, ">="),
+            Token::new(LESS, 0, 27, "<"),
+            Token::new(LESSEQUAL, 0, 29, "<="),
+            Token::new(TRUE, 0, 32, "true"),
+            Token::new(FALSE, 0, 37, "false"),
+            Token::new(AND, 0, 43, "and"),
+            Token::new(OR, 0, 47, "or"),
+            Token::new(STRING("test".to_string()), 0, 50, "\"test\""),
+            Token::new(NUMBER(123.0), 0, 57, "123"),
+            Token::new(NUMBER(123.45), 0, 61, "123.45"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
-        assert_eq!(tokens, target);
+        assert_eq!(Lexer::new().tokenize(src)?, target);
         Ok(())
     }
 
     #[test]
     fn handles_comments() -> Result<(), Vec<Error>> {
-        let mut lexer = Lexer::new();
         let src = r###"
             # This is a comment
             1 + 2
@@ -446,63 +300,16 @@ mod test {
             1 + 2 # this is an inline comment so that we dont also + 3
         "###;
 
-        let tokens = lexer.tokenize(src)?;
         let target = vec![
-            Token {
-                kind: NUMBER(1.0),
-                lexeme: "1".to_string(),
-                position: Position {
-                    line: 2,
-                    column: 13,
-                },
-            },
-            Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position {
-                    line: 2,
-                    column: 15,
-                },
-            },
-            Token {
-                kind: NUMBER(2.0),
-                lexeme: "2".to_string(),
-                position: Position {
-                    line: 2,
-                    column: 17,
-                },
-            },
-            Token {
-                kind: NUMBER(1.0),
-                lexeme: "1".to_string(),
-                position: Position {
-                    line: 4,
-                    column: 13,
-                },
-            },
-            Token {
-                kind: PLUS,
-                lexeme: "+".to_string(),
-                position: Position {
-                    line: 4,
-                    column: 15,
-                },
-            },
-            Token {
-                kind: NUMBER(2.0),
-                lexeme: "2".to_string(),
-                position: Position {
-                    line: 4,
-                    column: 17,
-                },
-            },
-            Token {
-                kind: EOF,
-                lexeme: " ".to_string(),
-                position: Position { line: 5, column: 8 },
-            },
+            Token::new(NUMBER(1.0), 2, 12, "1"),
+            Token::new(PLUS, 2, 14, "+"),
+            Token::new(NUMBER(2.0), 2, 16, "2"),
+            Token::new(NUMBER(1.0), 4, 12, "1"),
+            Token::new(PLUS, 4, 14, "+"),
+            Token::new(NUMBER(2.0), 4, 16, "2"),
+            Token::new(EOF, 6, 0, "\n"),
         ];
-        assert_eq!(tokens, target);
+        assert_eq!(Lexer::new().tokenize(src)?, target);
         Ok(())
     }
 
@@ -515,7 +322,7 @@ mod test {
             lexer.tokenize(src),
             Err(vec![Error::syntax_error(
                 SyntaxError::S001,
-                Token::new(TokenKind::UNKNOWN, Position::new(0, 1), src)
+                Token::new(TokenKind::UNKNOWN, 0, 0, src)
             )])
         );
         Ok(())
@@ -530,7 +337,7 @@ mod test {
             lexer.tokenize(src),
             Err(vec![Error::syntax_error(
                 SyntaxError::S002,
-                Token::new(TokenKind::UNKNOWN, Position::new(0, 1), "\"")
+                Token::new(TokenKind::UNKNOWN, 0, 0, "\"")
             )])
         );
         Ok(())

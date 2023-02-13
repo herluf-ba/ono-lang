@@ -104,27 +104,17 @@ impl Interpreter {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    use crate::types::{Expr, Position, Token, TokenKind, Value};
+    use pretty_assertions::assert_eq;
+    use crate::types::{Expr, Token, TokenKind, Value};
     use Expr::*;
     use TokenKind::*;
 
     #[test]
     fn or() -> Result<(), Error> {
-        let tokens = vec![
-            Token::new(TRUE, Position::new(0, 4), "true"),
-            Token::new(OR, Position::new(0, 8), "or"),
-            Token::new(FALSE, Position::new(0, 13), "false"),
-        ];
-
         let expr = Logical {
-            operator: tokens.get(1).unwrap().clone(),
-            left: Box::new(Literal {
-                value: tokens.get(0).unwrap().clone(),
-            }),
-            right: Box::new(Literal {
-                value: tokens.get(2).unwrap().clone(),
-            }),
+            left: Box::new(Literal { value: Token::new(TRUE, 0, 0, "true"), }),
+            operator: Token::new(OR, 0, 4, "or"),
+            right: Box::new(Literal { value: Token::new(FALSE, 0, 6, "false"), }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
@@ -134,20 +124,10 @@ mod test {
     
     #[test]
     fn addition() -> Result<(), Error> {
-        let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(PLUS, Position::new(0, 3), "+"),
-            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
-        ];
-
         let expr = Binary {
-            operator: tokens.get(1).unwrap().clone(),
-            left: Box::new(Literal {
-                value: tokens.get(0).unwrap().clone(),
-            }),
-            right: Box::new(Literal {
-                value: tokens.get(2).unwrap().clone(),
-            }),
+            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            operator: Token::new(PLUS, 0, 2, "+"),
+            right: Box::new(Literal { value: Token::new(NUMBER(2.0), 0, 4, "2"), }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
@@ -157,20 +137,10 @@ mod test {
    
     #[test]
     fn string_addition() -> Result<(), Error> {
-        let tokens = vec![
-            Token::new(STRING("foo".to_string()), Position::new(0, 3), "foo"),
-            Token::new(PLUS, Position::new(0, 5), "+"),
-            Token::new(STRING("bar".to_string()), Position::new(0, 10), "bar"),
-        ];
-
         let expr = Binary {
-            operator: tokens.get(1).unwrap().clone(),
-            left: Box::new(Literal {
-                value: tokens.get(0).unwrap().clone(),
-            }),
-            right: Box::new(Literal {
-                value: tokens.get(2).unwrap().clone(),
-            }),
+            left: Box::new(Literal { value: Token::new(STRING("foo".to_string()), 0, 0, "foo"), }),
+            operator: Token::new(PLUS, 0, 4, "+"),
+            right: Box::new(Literal { value: Token::new(STRING("bar".to_string()), 0, 5, "bar"), }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
@@ -180,20 +150,10 @@ mod test {
     
     #[test]
     fn less() -> Result<(), Error> {
-        let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(LESS, Position::new(0, 3), "<"),
-            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
-        ];
-
         let expr = Binary {
-            operator: tokens.get(1).unwrap().clone(),
-            left: Box::new(Literal {
-                value: tokens.get(0).unwrap().clone(),
-            }),
-            right: Box::new(Literal {
-                value: tokens.get(2).unwrap().clone(),
-            }),
+            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            operator: Token::new(LESS, 0, 2, "<"),
+            right: Box::new(Literal { value: Token::new(NUMBER(2.0), 0, 4, "2"), }),
         };
 
         let result = Interpreter::new().interpret(expr)?;
@@ -203,24 +163,14 @@ mod test {
 
     #[test]
     fn errors_on_division_by_zero() -> Result<(), Error> {
-        let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(SLASH, Position::new(0, 3), "/"),
-            Token::new(NUMBER(0.0), Position::new(0, 5), "0"),
-        ];
-
         let expr = Binary {
-            operator: tokens.get(1).unwrap().clone(),
-            left: Box::new(Literal {
-                value: tokens.get(0).unwrap().clone(),
-            }),
-            right: Box::new(Literal {
-                value: tokens.get(2).unwrap().clone(),
-            }),
+            left: Box::new(Literal { value: Token::new(NUMBER(1.0), 0, 0, "1"), }),
+            operator: Token::new(SLASH, 0, 2, "/"),
+            right: Box::new(Literal { value: Token::new(NUMBER(0.0), 0, 4, "0"), }),
         };
 
         let result = Interpreter::new().interpret(expr);
-        assert_eq!(result, Err(Error::runtime_error(RuntimeError::R001, tokens.get(1).unwrap().clone())));
+        assert_eq!(result, Err(Error::runtime_error(RuntimeError::R001, Token::new(SLASH, 0, 2, "/"))));
         Ok(())
     }
 }

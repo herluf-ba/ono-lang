@@ -201,18 +201,18 @@ impl Parser {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use super::*;
-    use crate::types::Position;
     use Expr::*;
     use TokenKind::*;
 
     #[test]
     fn logical_or() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(TRUE, Position::new(0, 4), "true"),
-            Token::new(OR, Position::new(0, 8), "or"),
-            Token::new(FALSE, Position::new(0, 13), "false"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(TRUE, 0, 0, "true"),
+            Token::new(OR, 0, 5, "or"),
+            Token::new(FALSE, 0, 8, "false"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -233,10 +233,10 @@ mod test {
     #[test]
     fn logical_and() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(TRUE, Position::new(0, 4), "true"),
-            Token::new(AND, Position::new(0, 8), "and"),
-            Token::new(FALSE, Position::new(0, 14), "false"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(TRUE, 0, 0, "true"),
+            Token::new(AND, 0, 5, "and"),
+            Token::new(FALSE, 0, 9, "false"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -257,10 +257,10 @@ mod test {
     #[test]
     fn comparison() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(LESSEQUAL, Position::new(0, 3), "<="),
-            Token::new(NUMBER(2.0), Position::new(0, 6), "2"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(NUMBER(1.0), 0, 0, "1"),
+            Token::new(LESSEQUAL, 0, 2, "<="),
+            Token::new(NUMBER(2.0), 0, 5, "2"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -281,10 +281,10 @@ mod test {
     #[test]
     fn term() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(PLUS, Position::new(0, 3), "+"),
-            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(NUMBER(1.0), 0, 0, "1"),
+            Token::new(PLUS, 0, 2, "+"),
+            Token::new(NUMBER(2.0), 0, 4, "2"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -305,10 +305,10 @@ mod test {
     #[test]
     fn factor() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 1), "1"),
-            Token::new(STAR, Position::new(0, 3), "*"),
-            Token::new(NUMBER(2.0), Position::new(0, 5), "2"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(NUMBER(1.0), 0, 0, "1"),
+            Token::new(STAR, 0, 2, "*"),
+            Token::new(NUMBER(2.0), 0, 4, "2"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -329,9 +329,9 @@ mod test {
     #[test]
     fn unary() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(MINUS, Position::new(0, 1), "-"),
-            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(MINUS, 0, 0, "-"),
+            Token::new(NUMBER(1.0), 0, 2, "1"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -349,8 +349,8 @@ mod test {
     #[test]
     fn primary() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(NUMBER(1.0), 0, 0 ,"1"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -364,10 +364,10 @@ mod test {
     #[test]
     fn primary_paren() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(LEFTPAREN, Position::new(0, 1), "("),
-            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
-            Token::new(RIGHTPAREN, Position::new(0, 1), ")"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(LEFTPAREN, 0, 0, "("),
+            Token::new(NUMBER(1.0), 0, 1, "1"),
+            Token::new(RIGHTPAREN, 0, 2, ")"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone())?;
@@ -383,9 +383,9 @@ mod test {
     #[test]
     fn error_on_unclosed_paren() -> Result<(), Error> {
         let tokens = vec![
-            Token::new(LEFTPAREN, Position::new(0, 1), "("),
-            Token::new(NUMBER(1.0), Position::new(0, 2), "1"),
-            Token::new(EOF, Position::new(1, 0), "\n"),
+            Token::new(LEFTPAREN, 0, 0, "("),
+            Token::new(NUMBER(1.0), 0, 1, "1"),
+            Token::new(EOF, 1, 0, "\n"),
         ];
 
         let result = Parser::new().parse(tokens.clone());
