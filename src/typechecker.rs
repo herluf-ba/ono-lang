@@ -94,7 +94,7 @@ impl Typechecker {
                         }
                     }
                     TokenKind::EQUALEQUAL | TokenKind::BANGEQUAL => {
-                        if left != Type::Bool || right != Type::Bool {
+                        if left != right {
                             Err(Error::type_error(
                                 TypeError::T001 { left, right },
                                 operator.clone(),
@@ -202,6 +202,129 @@ mod test {
                     operand: Type::Number
                 },
                 Token::new(BANG, 0, 0, "!")
+            )])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn binary_addition() -> Result<(), Vec<Error>> {
+        let expr_ok = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
+            operator: Token::new(PLUS, 0, 1, "+"),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(2.0), 0, 2, "2"),
+            }),
+        };
+
+        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Number);
+
+        let expr_ok_string = Binary {
+            left: Box::new(Literal {
+                value: Token::new(STRING("foo".to_string()), 0, 0, "foo"),
+            }),
+            operator: Token::new(PLUS, 0, 4, "+"),
+            right: Box::new(Literal {
+                value: Token::new(STRING("bar".to_string()), 0, 6, "bar"),
+            }),
+        };
+
+        assert_eq!(Typechecker::new().check(expr_ok_string)?, Type::Text);
+        
+        let expr_bad = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.23), 0, 0, "1.23"),
+            }),
+            operator: Token::new(PLUS, 0, 4, "+"),
+            right: Box::new(Literal {
+                value: Token::new(STRING("bar".to_string()), 0, 6, "bar"),
+            }),
+        };
+        assert_eq!(
+            Typechecker::new().check(expr_bad),
+            Err(vec![Error::type_error(
+                TypeError::T001 {
+                    left: Type::Number,
+                    right: Type::Text
+                },
+                Token::new(PLUS, 0, 4, "+")
+            )])
+        );
+        Ok(())
+    }
+
+
+    #[test]
+    fn number_comparison() -> Result<(), Vec<Error>> {
+        let expr_ok = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
+            operator: Token::new(LESS, 0, 2, "<"),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(2.0), 0, 4, "2"),
+            }),
+        };
+
+        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Bool);
+
+        let expr_bad = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
+            operator: Token::new(LESS, 0, 2, "<"),
+            right: Box::new(Literal {
+                value: Token::new(STRING("foo".to_string()), 0, 4, "foo"),
+            }),
+        };
+
+        assert_eq!(
+            Typechecker::new().check(expr_bad),
+            Err(vec![Error::type_error(
+                TypeError::T001 {
+                    left: Type::Number,
+                    right: Type::Text
+                },
+                Token::new(LESS, 0, 2, "<")
+            )])
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn equality() -> Result<(), Vec<Error>> {
+        let expr_ok = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
+            operator: Token::new(LESS, 0, 2, "=="),
+            right: Box::new(Literal {
+                value: Token::new(NUMBER(2.0), 0, 5, "2"),
+            }),
+        };
+
+        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Bool);
+
+        let expr_bad = Binary {
+            left: Box::new(Literal {
+                value: Token::new(NUMBER(1.0), 0, 0, "1"),
+            }),
+            operator: Token::new(EQUALEQUAL, 0, 2, "=="),
+            right: Box::new(Literal {
+                value: Token::new(STRING("foo".to_string()), 0, 5, "foo"),
+            }),
+        };
+
+        assert_eq!(
+            Typechecker::new().check(expr_bad),
+            Err(vec![Error::type_error(
+                TypeError::T001 {
+                    left: Type::Number,
+                    right: Type::Text
+                },
+                Token::new(EQUALEQUAL, 0, 2, "==")
             )])
         );
         Ok(())

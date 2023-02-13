@@ -112,7 +112,8 @@ Get expressions working. Do some cleanup!
 
 todo: 
 -[x] Make Token::new() take start column instead of end. Refactor lexer and parser
--[ ] Remove bang in favor of not 
+-[ ] Remove bang in favor of not
+-[ ] Try to combine nested enums for token kinds like operators and literals.
 
 
 ### Feat: Type checking pass
