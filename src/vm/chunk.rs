@@ -5,10 +5,10 @@ use super::{OpCode, Value};
 pub struct Chunk {
     // TODO: lines could be run-length encoded to save space
     /// Position information for error handling
-    lines: Vec<usize>,
+    pub lines: Vec<usize>,
 
-    constants: Vec<Value>,
-    code: Vec<u8>,
+    pub constants: Vec<Value>,
+    pub code: Vec<u8>,
 }
 
 impl Chunk {
