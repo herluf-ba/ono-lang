@@ -24,7 +24,7 @@ use my_other_other_module::{Enum, Obj};
 // primitive types are Number, Bool, String
 // any type can be made optional using 'type?'. This wraps the value in 'Some(value)' or 'None'.
 // any type can made into an iterable list using '[type]'
-// all values are truthy except 'false', none and empty list.
+// all values are truthy except 'false', none, unit tuple and empty list.
 
 // enums can be used to described variants
 enum Species {
@@ -117,6 +117,23 @@ Do typechecking of expressions
 ### ✅ Feat: Tuple expressions
 
 Implement tuples. Eliminate the null type in favor of unit tuple.
+
+### Feat: If expression
+
+Implement if expressions. 
+The else branch is mandatory and must have the same type as the then branch.
+
+### Feat: Variables
+
+Implement variables. 
+This requires statements and environments.
+Start with expression statements.
+Environments need to be generic, to store either types or values.
+Variables must have explicit types and must be initialized.
+
+### Feat: Infer variable type 
+
+Implement type inference of variable declarations using the initializer expression.
 
 ### Test: Block expressions?
 
