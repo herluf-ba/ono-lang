@@ -62,34 +62,29 @@ impl Program {
         println!("{:#?}", tokens);
 
         // --- PARSE --- //
-        let expr = match Parser::new().parse(tokens) {
-            Ok(expr) => expr,
-            Err(err) => {
-                let mut errors = vec![err];
-                self.format_errors(&mut errors);
-                return Err(errors);
-            }
-        };
-
-        println!("{:#?}", expr);
-
-        // --- TYPE CHECK --- //
-        // TODO: Remove this clone
-        let ttype = match Typechecker::new().check(expr.clone()) {
-            Ok(ttype) => ttype,
+        let statements = match Parser::new().parse(tokens) {
+            Ok(statements) => statements,
             Err(mut errors) => {
                 self.format_errors(&mut errors);
                 return Err(errors);
             }
         };
 
-        println!("{:#?}", ttype);
+        println!("{:#?}", statements);
+
+        // --- TYPE CHECK --- //
+        match Typechecker::new().check(statements.clone()) {
+            Ok(_) => {},
+            Err(mut errors) => {
+                self.format_errors(&mut errors);
+                return Err(errors);
+            }
+        };
 
         // --- INTERPRET --- //
-        let result = match Interpreter::new().interpret(expr) {
-            Ok(value) => value,
-            Err(err) => {
-                let mut errors = vec![err];
+        let result = match Interpreter::new().interpret(statements) {
+            Ok(_) => {},
+            Err(mut errors) => {
                 self.format_errors(&mut errors);
                 return Err(errors);
             }

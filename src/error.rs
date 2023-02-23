@@ -1,7 +1,7 @@
 use colored::Colorize;
 use std::fmt;
 
-use crate::types::{Token, Type};
+use crate::types::{Token, TokenKind, Type};
 
 /// A static syntax error.
 /// These are caught before running the program.
@@ -15,6 +15,8 @@ pub enum SyntaxError {
     S003,
     /// Expected expression
     S004,
+    /// Expected token
+    S005(TokenKind),
 }
 
 /// A type error.
@@ -24,7 +26,7 @@ pub enum TypeError {
     /// Binary operands type mismatch
     T001 { left: Type, right: Type },
     /// Unary operand type error
-    T002 { operand: Type }
+    T002 { operand: Type },
 }
 
 /// Runtime errors chrash the program.
@@ -139,7 +141,10 @@ impl Error {
                 }
                 SyntaxError::S002 => format!("unterminated string starting here"),
                 SyntaxError::S003 => format!("unterminated parenthesis starting here"),
-                SyntaxError::S004 => format!("expected expression after '{}'", self.token.lexeme),
+                SyntaxError::S004 => format!( "invalid expression around this '{}'", self.token.lexeme),
+                SyntaxError::S005(kind) => {
+                    format!("expected {:?} after '{}'", kind, self.token.lexeme)
+                }
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(

@@ -1,6 +1,6 @@
 use crate::{
     error::{language_error, Error, RuntimeError},
-    types::{Expr, TokenKind, Value},
+    types::{Expr, Stmt, TokenKind, Value},
 };
 
 pub struct Interpreter;
@@ -10,11 +10,32 @@ impl Interpreter {
         Self {}
     }
 
-    pub fn interpret(&mut self, expression: Expr) -> Result<Value, Error> {
-        self.visit_expression(&expression)
+    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
+        let mut errors = Vec::new();
+        for stmt in statements {
+            match self.visit_statement(&stmt) {
+                Ok(_) => {}
+                Err(error) => {
+                    errors.push(error);
+                }
+            }
+        }
+        if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(())
+        }
     }
 
-    fn visit_expression(&mut self, e: &Expr) -> Result<Value, Error> {
+    pub fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Error> {
+        match statement {
+            Stmt::Expression { expr } => {self.visit_expression(expr)?; }
+        }
+
+        Ok(())
+    }
+
+    pub fn visit_expression(&mut self, e: &Expr) -> Result<Value, Error> {
         match e {
             Expr::Literal { value } => Ok(Value::from(value)),
             Expr::Group { expr } => self.visit_expression(expr),
@@ -76,7 +97,7 @@ impl Interpreter {
                             TokenKind::LESSEQUAL => return Ok(Value::Bool(l <= r)),
                             TokenKind::GREATER => return Ok(Value::Bool(l > r)),
                             TokenKind::GREATEREQUAL => return Ok(Value::Bool(l >= r)),
-                            _ => {},
+                            _ => {}
                         }
                     }
                 }
@@ -85,7 +106,7 @@ impl Interpreter {
                     if let Value::Text(ref r) = right {
                         match operator.kind {
                             TokenKind::PLUS => return Ok(Value::Text(format!("{}{}", l, r))),
-                            _ => {},
+                            _ => {}
                         }
                     }
                 }
@@ -133,8 +154,11 @@ mod test {
             ],
         };
 
-        let result = Interpreter::new().interpret(expr)?;
-        assert_eq!(result, Value::Tuple(vec![Value::Number(3.0), Value::Number(7.0)]));
+        let result = Interpreter::new().visit_expression(&expr)?;
+        assert_eq!(
+            result,
+            Value::Tuple(vec![Value::Number(3.0), Value::Number(7.0)])
+        );
         Ok(())
     }
 
@@ -150,7 +174,7 @@ mod test {
             }),
         };
 
-        let result = Interpreter::new().interpret(expr)?;
+        let result = Interpreter::new().visit_expression(&expr)?;
         assert_eq!(result, Value::Bool(true));
         Ok(())
     }
@@ -167,7 +191,7 @@ mod test {
             }),
         };
 
-        let result = Interpreter::new().interpret(expr)?;
+        let result = Interpreter::new().visit_expression(&expr)?;
         assert_eq!(result, Value::Number(3.0));
         Ok(())
     }
@@ -184,7 +208,7 @@ mod test {
             }),
         };
 
-        let result = Interpreter::new().interpret(expr)?;
+        let result = Interpreter::new().visit_expression(&expr)?;
         assert_eq!(result, Value::Text("foobar".to_string()));
         Ok(())
     }
@@ -201,7 +225,7 @@ mod test {
             }),
         };
 
-        let result = Interpreter::new().interpret(expr)?;
+        let result = Interpreter::new().visit_expression(&expr)?;
         assert_eq!(result, Value::Bool(true));
         Ok(())
     }
@@ -218,7 +242,7 @@ mod test {
             }),
         };
 
-        let result = Interpreter::new().interpret(expr);
+        let result = Interpreter::new().visit_expression(&expr);
         assert_eq!(
             result,
             Err(Error::runtime_error(

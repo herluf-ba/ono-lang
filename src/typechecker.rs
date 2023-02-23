@@ -1,6 +1,6 @@
 use crate::{
     error::{language_error, Error, TypeError},
-    types::{Expr, TokenKind, Type},
+    types::{Expr, Stmt, TokenKind, Type},
 };
 
 pub struct Typechecker;
@@ -10,14 +10,34 @@ impl Typechecker {
         Self {}
     }
 
-    pub fn check(&mut self, expression: Expr) -> Result<Type, Vec<Error>> {
-        match self.visit_expression(&expression) {
-            Ok(t) => Ok(t),
-            Err(err) => Err(vec![err]),
+    pub fn check(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
+        let mut errors = Vec::new();
+        for stmt in statements {
+            match self.visit_statement(&stmt) {
+                Ok(_) => {},
+                Err(err) => {
+                    errors.push(err);
+                },
+            }
+        }
+
+        if errors.len() > 0 {
+            Err(errors)
+        } else {
+            Ok(())
         }
     }
 
-    fn visit_expression(&mut self, e: &Expr) -> Result<Type, Error> {
+    fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Error> {
+        match statement {
+            Stmt::Expression { expr } => {
+                self.visit_expression(expr)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn visit_expression(&mut self, e: &Expr) -> Result<Type, Error> {
         match e {
             Expr::Literal { value } => Ok(Type::from(value)),
             Expr::Group { expr } => self.visit_expression(expr),
@@ -74,9 +94,7 @@ impl Typechecker {
                             operator.clone(),
                         )),
                     },
-                    TokenKind::MINUS
-                    | TokenKind::STAR
-                    | TokenKind::SLASH => {
+                    TokenKind::MINUS | TokenKind::STAR | TokenKind::SLASH => {
                         if left != Type::Number || right != Type::Number {
                             Err(Error::type_error(
                                 TypeError::T001 { left, right },
@@ -124,9 +142,8 @@ mod test {
     use Expr::*;
     use TokenKind::*;
 
-
     #[test]
-    fn tuple() -> Result<(), Vec<Error>> {
+    fn tuple() -> Result<(), Error> {
         let expr = Tuple {
             inners: vec![
                 Binary {
@@ -150,13 +167,16 @@ mod test {
             ],
         };
 
-        assert_eq!(Typechecker::new().check(expr)?, Type::Tuple(vec![Type::Number, Type::Number]));
+        assert_eq!(
+            Typechecker::new().visit_expression(&expr)?,
+            Type::Tuple(vec![Type::Number, Type::Number])
+        );
 
         Ok(())
     }
 
     #[test]
-    fn logical() -> Result<(), Vec<Error>> {
+    fn logical() -> Result<(), Error> {
         let expr_ok = Logical {
             left: Box::new(Literal {
                 value: Token::new(TRUE, 0, 0, "true"),
@@ -167,7 +187,7 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Bool);
+        assert_eq!(Typechecker::new().visit_expression(&expr_ok)?, Type::Bool);
 
         let expr_bad = Logical {
             left: Box::new(Literal {
@@ -180,27 +200,27 @@ mod test {
         };
 
         assert_eq!(
-            Typechecker::new().check(expr_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_bad),
+            Err(Error::type_error(
                 TypeError::T001 {
                     left: Type::Bool,
                     right: Type::Number
                 },
                 Token::new(OR, 0, 4, "or")
-            )])
+            ))
         );
         Ok(())
     }
 
     #[test]
-    fn unary_negation() -> Result<(), Vec<Error>> {
+    fn unary_negation() -> Result<(), Error> {
         let expr_minus_ok = Unary {
             operator: Token::new(MINUS, 0, 0, "-"),
             expr: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 1, "1"),
             }),
         };
-        assert_eq!(Typechecker::new().check(expr_minus_ok)?, Type::Number);
+        assert_eq!(Typechecker::new().visit_expression(&expr_minus_ok)?, Type::Number);
 
         let expr_minus_bad = Unary {
             operator: Token::new(MINUS, 0, 0, "-"),
@@ -209,13 +229,13 @@ mod test {
             }),
         };
         assert_eq!(
-            Typechecker::new().check(expr_minus_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_minus_bad),
+            Err(Error::type_error(
                 TypeError::T002 {
                     operand: Type::Bool
                 },
                 Token::new(MINUS, 0, 0, "-")
-            )])
+            ))
         );
 
         let expr_bang_ok = Unary {
@@ -224,7 +244,7 @@ mod test {
                 value: Token::new(FALSE, 0, 1, "false"),
             }),
         };
-        assert_eq!(Typechecker::new().check(expr_bang_ok)?, Type::Bool);
+        assert_eq!(Typechecker::new().visit_expression(&expr_bang_ok)?, Type::Bool);
 
         let expr_bang_bad = Unary {
             operator: Token::new(BANG, 0, 0, "!"),
@@ -233,19 +253,19 @@ mod test {
             }),
         };
         assert_eq!(
-            Typechecker::new().check(expr_bang_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_bang_bad),
+            Err(Error::type_error(
                 TypeError::T002 {
                     operand: Type::Number
                 },
                 Token::new(BANG, 0, 0, "!")
-            )])
+            ))
         );
         Ok(())
     }
 
     #[test]
-    fn binary_addition() -> Result<(), Vec<Error>> {
+    fn binary_addition() -> Result<(), Error> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -256,7 +276,7 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Number);
+        assert_eq!(Typechecker::new().visit_expression(&expr_ok)?, Type::Number);
 
         let expr_ok_string = Binary {
             left: Box::new(Literal {
@@ -268,8 +288,8 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().check(expr_ok_string)?, Type::Text);
-        
+        assert_eq!(Typechecker::new().visit_expression(&expr_ok_string)?, Type::Text);
+
         let expr_bad = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.23), 0, 0, "1.23"),
@@ -280,21 +300,20 @@ mod test {
             }),
         };
         assert_eq!(
-            Typechecker::new().check(expr_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_bad),
+            Err(Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(PLUS, 0, 4, "+")
-            )])
+            ))
         );
         Ok(())
     }
 
-
     #[test]
-    fn number_comparison() -> Result<(), Vec<Error>> {
+    fn number_comparison() -> Result<(), Error> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -305,7 +324,7 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Bool);
+        assert_eq!(Typechecker::new().visit_expression(&expr_ok)?, Type::Bool);
 
         let expr_bad = Binary {
             left: Box::new(Literal {
@@ -318,20 +337,20 @@ mod test {
         };
 
         assert_eq!(
-            Typechecker::new().check(expr_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_bad),
+            Err(Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(LESS, 0, 2, "<")
-            )])
+            ))
         );
         Ok(())
     }
 
     #[test]
-    fn equality() -> Result<(), Vec<Error>> {
+    fn equality() -> Result<(), Error> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -342,7 +361,7 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().check(expr_ok)?, Type::Bool);
+        assert_eq!(Typechecker::new().visit_expression(&expr_ok)?, Type::Bool);
 
         let expr_bad = Binary {
             left: Box::new(Literal {
@@ -355,14 +374,14 @@ mod test {
         };
 
         assert_eq!(
-            Typechecker::new().check(expr_bad),
-            Err(vec![Error::type_error(
+            Typechecker::new().visit_expression(&expr_bad),
+            Err(Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(EQUALEQUAL, 0, 2, "==")
-            )])
+            ))
         );
         Ok(())
     }

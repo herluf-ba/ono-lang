@@ -143,6 +143,7 @@ impl Lexer {
             "*" => self.add_token(TokenKind::STAR),
             "/" => self.add_token(TokenKind::SLASH),
             "," => self.add_token(TokenKind::COMMA),
+            ";" => self.add_token(TokenKind::SEMICOLON),
             "!" => {
                 if self.is_next("=") {
                     self.add_token(TokenKind::BANGEQUAL);

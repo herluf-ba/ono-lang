@@ -6,6 +6,7 @@ pub enum TokenKind {
     RIGHTPAREN,
     COMMA,
     EQUAL,
+    SEMICOLON,
 
     // Math operators
     MINUS,
@@ -58,7 +59,7 @@ impl Position {
 
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
+        write!(f, "{}:{}", self.line + 1, self.column + 1)
     }
 }
 
