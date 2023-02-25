@@ -1,13 +1,18 @@
 use crate::{
+    environment::Environment,
     error::{language_error, Error, RuntimeError},
     types::{Expr, Stmt, TokenKind, Value},
 };
 
-pub struct Interpreter;
+pub struct Interpreter {
+    scope: Environment<Value>,
+}
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            scope: Environment::new(),
+        }
     }
 
     pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
@@ -20,6 +25,10 @@ impl Interpreter {
                 }
             }
         }
+
+        // TODO: Remove this
+        println!("{:?}", self.scope);
+
         if errors.len() > 0 {
             Err(errors)
         } else {
@@ -29,7 +38,13 @@ impl Interpreter {
 
     pub fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Error> {
         match statement {
-            Stmt::Expression { expr } => {self.visit_expression(expr)?; }
+            Stmt::Expression { expr } => {
+                self.visit_expression(expr)?;
+            },
+            Stmt::Let { name, ttype: _, initializer } => {
+                let value = self.visit_expression(initializer)?;
+                self.scope.define(&name.lexeme, value);
+            }
         }
 
         Ok(())

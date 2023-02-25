@@ -1,23 +1,28 @@
 use crate::{
+    environment::Environment,
     error::{language_error, Error, TypeError},
     types::{Expr, Stmt, TokenKind, Type},
 };
 
-pub struct Typechecker;
+pub struct Typechecker {
+    scope: Environment<Type>,
+}
 
 impl Typechecker {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            scope: Environment::new(),
+        }
     }
 
     pub fn check(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
         let mut errors = Vec::new();
         for stmt in statements {
             match self.visit_statement(&stmt) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(err) => {
                     errors.push(err);
-                },
+                }
             }
         }
 
@@ -32,6 +37,26 @@ impl Typechecker {
         match statement {
             Stmt::Expression { expr } => {
                 self.visit_expression(expr)?;
+            }
+            Stmt::Let {
+                name,
+                ttype,
+                initializer,
+            } => {
+                let initializer_type = self.visit_expression(initializer)?;
+                if let Some(ttype) = ttype {
+                    if initializer_type != *ttype {
+                        return Err(Error::type_error(
+                            TypeError::T003 {
+                                declared_as: ttype.clone(),
+                                initialized_as: initializer_type.clone(),
+                            },
+                            name.clone(),
+                        ));
+                    }
+                }
+
+                self.scope.define(&name.lexeme, initializer_type);
             }
         }
         Ok(())
@@ -220,7 +245,10 @@ mod test {
                 value: Token::new(NUMBER(1.0), 0, 1, "1"),
             }),
         };
-        assert_eq!(Typechecker::new().visit_expression(&expr_minus_ok)?, Type::Number);
+        assert_eq!(
+            Typechecker::new().visit_expression(&expr_minus_ok)?,
+            Type::Number
+        );
 
         let expr_minus_bad = Unary {
             operator: Token::new(MINUS, 0, 0, "-"),
@@ -244,7 +272,10 @@ mod test {
                 value: Token::new(FALSE, 0, 1, "false"),
             }),
         };
-        assert_eq!(Typechecker::new().visit_expression(&expr_bang_ok)?, Type::Bool);
+        assert_eq!(
+            Typechecker::new().visit_expression(&expr_bang_ok)?,
+            Type::Bool
+        );
 
         let expr_bang_bad = Unary {
             operator: Token::new(BANG, 0, 0, "!"),
@@ -288,7 +319,10 @@ mod test {
             }),
         };
 
-        assert_eq!(Typechecker::new().visit_expression(&expr_ok_string)?, Type::Text);
+        assert_eq!(
+            Typechecker::new().visit_expression(&expr_ok_string)?,
+            Type::Text
+        );
 
         let expr_bad = Binary {
             left: Box::new(Literal {

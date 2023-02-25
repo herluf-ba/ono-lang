@@ -1,7 +1,62 @@
+## Roadmap
+
+### ✅ Feat: Expressions
+
+Get expressions working. Do some cleanup!
+
+### ✅ Feat: Type checking pass
+
+Do typechecking of expressions
+
+### ✅ Feat: Tuple expressions
+
+Implement tuples. Eliminate the null type in favor of unit tuple.
+
+### Feat: create test suite that reads source files and compares to expected output
+
+### ✅ Feat: expression statements
+
+If an expression is followed by a semicolon, it marks that the result is not used.
+The expression should merely be evaluated for its side-effect.
+This is useful for declarations, but also later for stateful function calls.
+```rust
+  1 + 2; // <- typechecked and evaluated but then ignored.
+```
+
+### Feat: Declaration statements
+
+Implement declarations to a single global scope. Declarations take the form
+```rust
+  let a: number = 1;
+  let b = 1; // type infered from initializer
+  let c: bool = 1 + 2; // result in type error
+```
+
+### Feat: Variable expressions
+
+Implement a way to refer to variables in scope.
+```rust
+let a = 1;
+let b = 2;
+a <= b // evaluates to false
+```
+
+### Test: Block expressions?
+
+Implement a rust style block that returns a value if the last thing in it is an expression.
+useful for if statements, functions, and local variable declarations.
+Maybe empty blocks can return unit type and be treated as expression statements?
+
+### Feat: If-expressions
+
+Implement if-expressions. Each branch must have the same return type.
+If expressions must have an else branch.
+
 # ⚠️ Disclaimer ⚠️
 
 This is a hobby project. I cannot recommend depending on it for anything serious.
 However, feel free to clone, modify and reuse any part of it if it brings you any value.
+What follows is pure fiction.
 
 ## ono
 
@@ -104,56 +159,3 @@ fn main() {
 }
 ```
 
-## Roadmap
-
-### ✅ Feat: Expressions
-
-Get expressions working. Do some cleanup!
-
-### ✅ Feat: Type checking pass
-
-Do typechecking of expressions
-
-### ✅ Feat: Tuple expressions
-
-Implement tuples. Eliminate the null type in favor of unit tuple.
-
-### Feat: create test suite that reads source files and compares to expected output
-
-### Feat: expression statements
-
-If an expression is followed by a semicolon, it marks that the result is not used.
-The expression should merely be evaluated for its side-effect.
-This is useful for declarations, but also later for stateful function calls.
-```rust
-  1 + 2; // <- typechecked and evaluated but then ignored.
-```
-
-### Feat: Declaration statements
-
-Implement declarations to a single global scope. Declarations take the form
-```rust
-  let a: number = 1;
-  let b = 1; // type infered
-  let c: bool = 1 + 2; // result in type error
-```
-
-### Feat: Variable expressions
-
-Implement a way to refer to variables in scope.
-```rust
-let a = 1;
-let b = 2;
-a <= b // evaluates to false
-```
-
-### Test: Block expressions?
-
-Implement a rust style block that returns a value if the last thing in it is an expression.
-useful for if statements, functions, and local variable declarations.
-Maybe empty blocks can return unit type and be treated as expression statements?
-
-### Feat: If-expressions
-
-Implement if-expressions. Each branch must have the same return type.
-If expressions must have an else branch.

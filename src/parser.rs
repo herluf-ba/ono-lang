@@ -1,8 +1,12 @@
 use crate::error::{Error, SyntaxError};
-use crate::types::{Expr, Stmt, Token, TokenKind};
+use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 
-/// ONO GRAMMAR ///
-/// program     -> statement* EOF;
+/// ONO GRAMMAR
+/// program     -> declaration* EOF;
+
+/// declaration -> letDecl | statement;
+/// letDecl     -> "let" IDENTIFIER (":" type)? "=" expression ";" ;
+
 /// statement   -> exprStmt ;
 /// exprStmt    -> expression ';' ;
 
@@ -14,8 +18,13 @@ use crate::types::{Expr, Stmt, Token, TokenKind};
 /// term        -> factor ( ("-" | "+") factor )* ;
 /// factor      -> unary ( ("/" | "*") unary )* ;
 /// unary       -> ("!" | "-") unary | primary ;
-/// primary     -> NUMBER | STRING | "true" | "false" | "null" | tuple ;
+/// primary     -> NUMBER | STRING | IDENTIFIER | "true" | "false" | "null" | tuple ;
 /// tuple       -> "(" expression ( "," expression )* ")" ;
+
+/// type        -> list_type | tuple_type | simple_type "?"? ;
+/// list_type   -> "[" bottom_type "]" ;
+/// tuple_type  -> "(" type ("," type )* ")" ;
+/// simple_type -> "string" | "number" | "bool" ;
 
 /// Parses a Vec<Token> into an expression
 pub struct Parser {
@@ -37,7 +46,7 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            match self.statement() {
+            match self.declaration() {
                 Ok(statement) => {
                     statements.push(statement);
                 }
@@ -52,6 +61,52 @@ impl Parser {
             Err(errors)
         } else {
             Ok(statements)
+        }
+    }
+
+    fn declaration(&mut self) -> Result<Stmt, Error> {
+        if self.consume(&TokenKind::LET).is_some() {
+            return self.let_declaration();
+        }
+
+        self.statement()
+    }
+
+    fn let_declaration(&mut self) -> Result<Stmt, Error> {
+        let name = match self.consume(&TokenKind::IDENTIFIER("".to_string())) {
+            Some(token) => token.clone(),
+            None => {
+                return Err(Error::syntax_error(
+                    SyntaxError::S007,
+                    self.previous().clone(),
+                ))
+            }
+        };
+
+        let ttype = if self.consume(&TokenKind::COLON).is_none() {
+            None
+        } else {
+            Some(self.ttype()?)
+        };
+
+        if self.consume(&TokenKind::EQUAL).is_none() {
+            return Err(Error::syntax_error(
+                SyntaxError::S008,
+                name,
+            ));
+        }
+
+        let initializer = self.expression()?;
+        match self.consume(&TokenKind::SEMICOLON) {
+            Some(_) => Ok(Stmt::Let {
+                name,
+                ttype,
+                initializer,
+            }),
+            None => Err(Error::syntax_error(
+                SyntaxError::S005(TokenKind::SEMICOLON),
+                self.previous().clone(),
+            )),
         }
     }
 
@@ -214,6 +269,47 @@ impl Parser {
         } else {
             Ok(Expr::Tuple { inners })
         }
+    }
+
+    fn ttype(&mut self) -> Result<Type, Error> {
+        if self.consume(&TokenKind::BOOL).is_some() {
+            return Ok(Type::Bool);
+        }
+
+        if self.consume(&TokenKind::NUMBERKW).is_some() {
+            return Ok(Type::Number);
+        }
+
+        if self.consume(&TokenKind::STRINGKW).is_some() {
+            return Ok(Type::Text);
+        }
+
+        if self.consume(&TokenKind::LEFTPAREN).is_some() {
+            self.tuple_type()
+        } else {
+            Err(Error::syntax_error(
+                SyntaxError::S006,
+                self.previous().clone(),
+            ))
+        }
+    }
+
+    fn tuple_type(&mut self) -> Result<Type, Error> {
+        if self.consume(&TokenKind::RIGHTPAREN).is_some() {
+            return Ok(Type::Tuple(Vec::new()));
+        }
+
+        let opening_token = self.previous().clone();
+        let mut inners = vec![self.ttype()?];
+        while let Some(_) = self.consume(&TokenKind::COMMA) {
+            inners.push(self.ttype()?);
+        }
+
+        if self.consume(&TokenKind::RIGHTPAREN).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S003, opening_token));
+        }
+
+        Ok(Type::Tuple(inners))
     }
 
     fn previous(&self) -> &Token {

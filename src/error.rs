@@ -17,6 +17,12 @@ pub enum SyntaxError {
     S004,
     /// Expected token
     S005(TokenKind),
+    /// Expected type
+    S006,
+    /// Expected identifier
+    S007,
+    /// Uninitialized variable
+    S008,
 }
 
 /// A type error.
@@ -27,6 +33,11 @@ pub enum TypeError {
     T001 { left: Type, right: Type },
     /// Unary operand type error
     T002 { operand: Type },
+    /// variable type and initializer mismatch
+    T003 {
+        declared_as: Type,
+        initialized_as: Type,
+    },
 }
 
 /// Runtime errors chrash the program.
@@ -141,10 +152,15 @@ impl Error {
                 }
                 SyntaxError::S002 => format!("unterminated string starting here"),
                 SyntaxError::S003 => format!("unterminated parenthesis starting here"),
-                SyntaxError::S004 => format!( "invalid expression around this '{}'", self.token.lexeme),
+                SyntaxError::S004 => {
+                    format!("expected expression with this '{}'", self.token.lexeme)
+                }
                 SyntaxError::S005(kind) => {
                     format!("expected {:?} after '{}'", kind, self.token.lexeme)
                 }
+                SyntaxError::S006 => format!("expected type after '{}'", self.token.lexeme),
+                SyntaxError::S007 => format!("expected identifier after '{}'", self.token.lexeme),
+                SyntaxError::S008 => format!("'{}' must be initialized", self.token.lexeme),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(
@@ -157,6 +173,15 @@ impl Error {
                     "cannot '{}{}'",
                     self.token.lexeme,
                     format!("{}", operand).cyan()
+                ),
+                TypeError::T003 {
+                    declared_as,
+                    initialized_as,
+                } => format!(
+                    "'{}' declared as {} but initialized as {}",
+                    self.token.lexeme,
+                    format!("{}", declared_as).cyan(),
+                    format!("{}", initialized_as).cyan()
                 ),
             },
             ErrorKind::Runtime(errno) => match errno {

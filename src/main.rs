@@ -4,6 +4,7 @@ use std::path::Path;
 
 mod error;
 mod interpreter;
+mod environment;
 mod lexer;
 mod parser;
 mod types;
@@ -59,7 +60,7 @@ impl Program {
             }
         };
 
-        println!("{:#?}", tokens);
+        //println!("{:#?}", tokens);
 
         // --- PARSE --- //
         let statements = match Parser::new().parse(tokens) {
@@ -70,7 +71,7 @@ impl Program {
             }
         };
 
-        println!("{:#?}", statements);
+        //println!("{:#?}", statements);
 
         // --- TYPE CHECK --- //
         match Typechecker::new().check(statements.clone()) {
@@ -82,7 +83,7 @@ impl Program {
         };
 
         // --- INTERPRET --- //
-        let result = match Interpreter::new().interpret(statements) {
+        match Interpreter::new().interpret(statements) {
             Ok(_) => {},
             Err(mut errors) => {
                 self.format_errors(&mut errors);
@@ -90,7 +91,6 @@ impl Program {
             }
         };
 
-        println!("{:#?}", result);
 
         Ok(())
     }

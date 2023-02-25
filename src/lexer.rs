@@ -138,11 +138,14 @@ impl Lexer {
             "\n" | " " | "\t" => {}
             "(" => self.add_token(TokenKind::LEFTPAREN),
             ")" => self.add_token(TokenKind::RIGHTPAREN),
+            "[" => self.add_token(TokenKind::LEFTBRACKET),
+            "]" => self.add_token(TokenKind::RIGHTBRACKET),
             "-" => self.add_token(TokenKind::MINUS),
             "+" => self.add_token(TokenKind::PLUS),
             "*" => self.add_token(TokenKind::STAR),
             "/" => self.add_token(TokenKind::SLASH),
             "," => self.add_token(TokenKind::COMMA),
+            ":" => self.add_token(TokenKind::COLON),
             ";" => self.add_token(TokenKind::SEMICOLON),
             "!" => {
                 if self.is_next("=") {
@@ -253,7 +256,11 @@ impl Lexer {
             "false" => TokenKind::FALSE,
             "or" => TokenKind::OR,
             "true" => TokenKind::TRUE,
-            _ => todo!("identifier"),
+            "let" => TokenKind::LET,
+            "string" => TokenKind::STRINGKW,
+            "number" => TokenKind::NUMBERKW,
+            "bool" => TokenKind::BOOL,
+            identifier => TokenKind::IDENTIFIER(identifier.to_string()),
         };
 
         self.add_token(token)

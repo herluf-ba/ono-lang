@@ -4,9 +4,19 @@ use std::fmt::Display;
 pub enum TokenKind {
     LEFTPAREN,
     RIGHTPAREN,
+    LEFTBRACKET,
+    RIGHTBRACKET,
+
     COMMA,
     EQUAL,
+    COLON,
     SEMICOLON,
+
+    // Keywords
+    LET,
+    STRINGKW,
+    NUMBERKW,
+    BOOL,
 
     // Math operators
     MINUS,
@@ -30,6 +40,7 @@ pub enum TokenKind {
     NUMBER(f64),
     TRUE,
     FALSE,
+    IDENTIFIER(String),
 
     // Internal
     EOF,

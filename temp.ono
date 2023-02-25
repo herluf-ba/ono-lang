@@ -1,5 +1,4 @@
-and false;
+let a = 1 + 2;
 
-1 + 2;
-
-1 + ;
+let b: bool;
+let my_awesome_variable: bool = "foo";
