@@ -38,6 +38,8 @@ pub enum TypeError {
         declared_as: Type,
         initialized_as: Type,
     },
+    /// variable is undefined
+    T004
 }
 
 /// Runtime errors chrash the program.
@@ -183,6 +185,7 @@ impl Error {
                     format!("{}", declared_as).cyan(),
                     format!("{}", initialized_as).cyan()
                 ),
+                TypeError::T004 => format!("'{}' is undefined here", self.token.lexeme)
             },
             ErrorKind::Runtime(errno) => match errno {
                 RuntimeError::R001 => format!("division by zero here"),

@@ -155,6 +155,13 @@ impl Typechecker {
                     _ => language_error(&format!("unknown binary operator '{}'", operator.lexeme)),
                 }
             }
+            Expr::Variable { name } => {
+                if let Some(ttype) = self.scope.get(&name.lexeme) {
+                    Ok(ttype.clone())
+                } else {
+                    Err(Error::type_error(TypeError::T004, name.clone()))
+                }
+            }
         }
     }
 }

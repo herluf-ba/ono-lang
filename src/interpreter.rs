@@ -40,8 +40,12 @@ impl Interpreter {
         match statement {
             Stmt::Expression { expr } => {
                 self.visit_expression(expr)?;
-            },
-            Stmt::Let { name, ttype: _, initializer } => {
+            }
+            Stmt::Let {
+                name,
+                ttype: _,
+                initializer,
+            } => {
                 let value = self.visit_expression(initializer)?;
                 self.scope.define(&name.lexeme, value);
             }
@@ -130,6 +134,15 @@ impl Interpreter {
                     TokenKind::EQUALEQUAL => return Ok(Value::Bool(left == right)),
                     TokenKind::BANGEQUAL => return Ok(Value::Bool(left != right)),
                     _ => language_error(&format!("unknown binary operator '{}'", operator.lexeme)),
+                }
+            },
+            Expr::Variable { name } => {
+                if let Some(value) = self.scope.get(&name.lexeme) {
+                    Ok(value.clone())
+                } else {
+                    language_error(
+                        "undefined variable that was not type checked"
+                    );
                 }
             }
         }

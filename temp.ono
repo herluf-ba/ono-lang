@@ -1,4 +1,1 @@
-let a = 1 + 2;
-
-let b: bool;
-let my_awesome_variable: bool = "foo";
+let c: (bool, bool) = (1 + 2, true);

@@ -71,7 +71,7 @@ impl Program {
             }
         };
 
-        //println!("{:#?}", statements);
+        println!("{:#?}", statements);
 
         // --- TYPE CHECK --- //
         match Typechecker::new().check(statements.clone()) {

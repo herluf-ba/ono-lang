@@ -26,5 +26,8 @@ pub enum Expr {
     Group {
         expr: Box<Expr>,
     },
+    Variable {
+        name: Token,
+    },
 }
 

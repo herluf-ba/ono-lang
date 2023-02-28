@@ -237,6 +237,10 @@ impl Parser {
             });
         }
 
+        if self.consume(&TokenKind::IDENTIFIER("".to_string())).is_some() {
+            return Ok(Expr::Variable { name: self.previous().clone() });
+        }
+
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
             return self.tuple();
         }
