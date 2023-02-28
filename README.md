@@ -1,19 +1,21 @@
 # Roadmap
--[x] Expressions
+- [x] Expressions
 
 Get expressions working. Do some cleanup!
 
-### ✅ Type checking pass
+- [x] Type checking pass
 
 Do typechecking of expressions
 
-### ✅ Tuple expressions
+- [x] Tuple expressions
 
 Implement tuples. Eliminate the null type in favor of unit tuple.
 
-###  create test suite that reads source files and compares to expected output
+- [] End to end tests
 
-### ✅ expression statements
+create test suite that reads source files and compares to expected output
+
+- [x] expression statements
 
 If an expression is followed by a semicolon, it marks that the result is not used.
 The expression should merely be evaluated for its side-effect.
@@ -22,7 +24,7 @@ This is useful for declarations, but also later for stateful function calls.
   1 + 2; // <- typechecked and evaluated but then ignored.
 ```
 
-### ✅ Declaration statements
+- [x] Declaration statements
 
 Implement declarations to a single global scope. Declarations take the form
 ```rust
@@ -31,7 +33,7 @@ Implement declarations to a single global scope. Declarations take the form
   let c: bool = 1 + 2; // result in type error
 ```
 
-### ✅ Variable expressions
+- [x] Variable expressions
 
 Implement a way to refer to variables in scope.
 ```rust
@@ -39,7 +41,7 @@ let a = 1;
 let b = a * 2; // evaluates to 2
 ```
 
-### Block expressions
+- [] Block expressions
 
 Implement a rust style block that returns the value of the last expression in it.
 Implicitly return () if the there is no such expression
@@ -57,7 +59,7 @@ let d = {
 // d -> ()
 ```
 
-### Tuple indexing
+- [] Tuple indexing
 
 Implement a way to access the elements of a tuple
 ```rust
@@ -65,7 +67,7 @@ let t = (1, 2);
 let sum_t = t.0 + t.1; // -> 3
 ```
 
-### Tuple unpacking
+- [] Tuple unpacking
 
 Implement of "unpacking" a tuple into variables. Only 
 
@@ -76,7 +78,7 @@ let f, g, _ = t; // f = 1, g = 2 rest is unused.
 let a, b, c, d, e, f = t; // type error: t is length 5 but 6 elements extracted  
 ```
 
-### If-expressions
+- [] If-expressions
 
 Implement if-expressions. Each branch must have the same return type.
 If expressions must have an else branch.
