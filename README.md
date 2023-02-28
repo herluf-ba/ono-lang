@@ -1,5 +1,5 @@
 # Roadmap
--[x] Expressions
+- [x] Expressions
 
 Get expressions working. Do some cleanup!
 
