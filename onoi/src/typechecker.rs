@@ -162,6 +162,19 @@ impl Typechecker {
                     Err(Error::type_error(TypeError::T004, name.clone()))
                 }
             }
+            Expr::Assign { name, expr } => {
+                let assigned_to = self.visit_expression(expr)?;
+                if let Some(declared_as) = self.scope.get(&name.lexeme) {
+                    return if *declared_as != assigned_to {
+                        Err(Error::type_error(TypeError::T005 { declared_as: declared_as.clone(), assigned_to }, name.clone()))
+                    } else { 
+                        Ok(assigned_to)
+                    }
+                } else {
+                    Err(Error::type_error(TypeError::T004, name.clone()))
+                }
+
+            },
         }
     }
 }

@@ -1,5 +1,5 @@
 use colored::Colorize;
-use std::fmt;
+use std::fmt::{self, Debug};
 
 use crate::types::{Token, TokenKind, Type};
 
@@ -23,6 +23,8 @@ pub enum SyntaxError {
     S007,
     /// Uninitialized variable
     S008,
+    /// Invalid assigment target
+    S009,
 }
 
 /// A type error.
@@ -39,7 +41,12 @@ pub enum TypeError {
         initialized_as: Type,
     },
     /// variable is undefined
-    T004
+    T004,
+    /// cannot assign <type> to <type>
+    T005 {
+        declared_as: Type,
+        assigned_to: Type,
+    },
 }
 
 /// Runtime errors chrash the program.
@@ -163,6 +170,7 @@ impl Error {
                 SyntaxError::S006 => format!("expected type after '{}'", self.token.lexeme),
                 SyntaxError::S007 => format!("expected identifier after '{}'", self.token.lexeme),
                 SyntaxError::S008 => format!("'{}' must be initialized", self.token.lexeme),
+                SyntaxError::S009 => format!("cannot assign to left hand side"),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(
@@ -185,7 +193,15 @@ impl Error {
                     format!("{}", declared_as).cyan(),
                     format!("{}", initialized_as).cyan()
                 ),
-                TypeError::T004 => format!("'{}' is undefined here", self.token.lexeme)
+                TypeError::T004 => format!("'{}' is undefined here", self.token.lexeme),
+                TypeError::T005 {
+                    declared_as,
+                    assigned_to,
+                } => format!(
+                    "cannot assign {} to {}",
+                    format!("{}", assigned_to).cyan(),
+                    format!("{}", declared_as).cyan()
+                ),
             },
             ErrorKind::Runtime(errno) => match errno {
                 RuntimeError::R001 => format!("division by zero here"),
@@ -200,7 +216,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "\n{}\n{}\n{}",
+            "{}\n{}\n{}",
             self.format_message(),
             self.format_filename(),
             self.format_line_src(),

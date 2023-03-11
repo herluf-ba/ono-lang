@@ -11,7 +11,7 @@ Do typechecking of expressions
 
 Implement tuples. Eliminate the null type in favor of unit tuple.
 
-- [] End to end tests
+- [ ] End to end tests
 
 create test suite that reads source files and compares to expected output
 
@@ -41,7 +41,15 @@ let a = 1;
 let b = a * 2; // evaluates to 2
 ```
 
-- [] Block expressions
+- [ ] Assignment expressions
+Implement assignments.
+```rust
+let a = 1;
+a = 2;
+a = true; // <- type error
+```
+
+- [ ] Block expressions
 
 Implement a rust style block that returns the value of the last expression in it.
 Implicitly return () if the there is no such expression
@@ -59,7 +67,7 @@ let d = {
 // d -> ()
 ```
 
-- [] Tuple indexing
+- [ ] Tuple indexing
 
 Implement a way to access the elements of a tuple
 ```rust
@@ -67,7 +75,7 @@ let t = (1, 2);
 let sum_t = t.0 + t.1; // -> 3
 ```
 
-- [] Tuple unpacking
+- [ ] Tuple unpacking
 
 Implement of "unpacking" a tuple into variables. Only 
 
@@ -78,10 +86,25 @@ let f, g, _ = t; // f = 1, g = 2 rest is unused.
 let a, b, c, d, e, f = t; // type error: t is length 5 but 6 elements extracted  
 ```
 
-- [] If-expressions
+- [ ] If-expressions
 
 Implement if-expressions. Each branch must have the same return type.
 If expressions must have an else branch.
+```rust
+let a = if 1 >= 2 { "foo" } else { "bar" };
+```
+
+A side effect is that regular if statements are now possible as an expression statement
+```rust
+if 1 > 2 {
+  let foo = true;
+} else {
+  let bar = false;
+}; // An expression of type ()
+```
+although the trailing ';' is uncool, and the else branch is mandatory.
+
+
 
 # ⚠️ Disclaimer ⚠️
 

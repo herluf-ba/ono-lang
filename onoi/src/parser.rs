@@ -10,7 +10,8 @@ use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 /// statement   -> exprStmt ;
 /// exprStmt    -> expression ';' ;
 
-/// expression  -> logic_or
+/// expression  -> assignment ; 
+/// assignment  -> IDENTIFIER "=" assignment | logic_or ;
 /// logic_or    -> logic_and ( "or" logic_and )* ;
 /// logic_and   -> equality ( "and" equality )* ;
 /// equality    -> comparison ( ("!=" | "==") comparison )* ;
@@ -127,7 +128,24 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, Error> {
-        self.logic_or()
+        self.assigment()
+    }
+
+    fn assigment(&mut self) -> Result<Expr, Error> {
+        let expr = self.logic_or()?;
+        if self.consume(&TokenKind::EQUAL).is_some() {
+            let equals = self.previous().clone();
+            let value = self.assigment()?;
+            return match expr {
+                Expr::Variable { name } => Ok(Expr::Assign {
+                    name,
+                    expr: Box::new(value),
+                }),
+                _ => Err(Error::syntax_error(SyntaxError::S009, equals)),
+            };
+        }
+
+        Ok(expr)
     }
 
     fn logic_or(&mut self) -> Result<Expr, Error> {

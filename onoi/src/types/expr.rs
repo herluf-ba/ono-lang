@@ -29,5 +29,9 @@ pub enum Expr {
     Variable {
         name: Token,
     },
+    Assign {
+        name: Token,
+        expr: Box<Expr>
+    },
 }
 

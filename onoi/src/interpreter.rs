@@ -26,9 +26,6 @@ impl Interpreter {
             }
         }
 
-        // TODO: Remove this
-        println!("{:?}", self.scope);
-
         if errors.len() > 0 {
             Err(errors)
         } else {
@@ -145,6 +142,13 @@ impl Interpreter {
                     );
                 }
             }
+            Expr::Assign { name, expr } => {
+                let value = self.visit_expression(expr)?;
+                if let Err(_) = self.scope.assign(&name.lexeme, value.clone()) {
+                    language_error(&format!("assignment target '{}' is not in scope", name.lexeme))
+                }
+                Ok(value)
+            }, 
         }
     }
 }
