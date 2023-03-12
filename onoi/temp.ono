@@ -1,3 +1,4 @@
-let a = "foo"; 
+let a = 2; 
 let b = 1;
+a = true;
 let c = a + b;

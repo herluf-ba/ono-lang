@@ -15,7 +15,7 @@ impl Typechecker {
         }
     }
 
-    pub fn check(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
+    pub fn check(&mut self, statements: &Vec<Stmt>) -> Result<(), Vec<Error>> {
         let mut errors = Vec::new();
         for stmt in statements {
             match self.visit_statement(&stmt) {

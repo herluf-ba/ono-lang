@@ -16,8 +16,7 @@ use typechecker::Typechecker;
 pub fn run(program: &str) -> Result<(), Vec<Error>> {
     let tokens = Lexer::new().tokenize(program)?;
     let statements = Parser::new().parse(tokens)?;
-
-    Typechecker::new().check(statements.clone())?;
-    Interpreter::new().interpret(statements)?;
+    Typechecker::new().check(&statements)?;
+    Interpreter::new().interpret(&statements)?;
     Ok(())
 }

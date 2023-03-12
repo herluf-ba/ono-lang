@@ -1,7 +1,6 @@
+use crate::types::{Token, TokenKind, Type};
 use colored::Colorize;
 use std::fmt::{self, Debug};
-
-use crate::types::{Token, TokenKind, Type};
 
 /// A static syntax error.
 /// These are caught before running the program.
@@ -214,12 +213,14 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}\n{}\n{}",
-            self.format_message(),
-            self.format_filename(),
-            self.format_line_src(),
-        )
+        write!(f, "{}", self.format_message())?;
+        if self.file.is_some() {
+            write!(f, "\n{}", self.format_filename())?;
+        }
+        if self.line_src.is_some() {
+            write!(f, "\n{}", self.format_line_src())?;
+        }
+
+        Ok(())
     }
 }

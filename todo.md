@@ -2,15 +2,8 @@
 # Roadmap
 - [ ] End to end tests
 
-create test suite that reads source files and compares to expected output
-
-- [ ] Assignment expressions
-Implement assignments.
-```rust
-let a = 1;
-a = 2;
-a = true; // <- type error
-```
+create test suite that reads source files and compares to expected output.
+Then test all language features and all error productions.
 
 - [ ] Block expressions
 
@@ -105,3 +98,10 @@ let a = 1;
 let b = a * 2; // evaluates to 2
 ```
 
+- [x] Assignment expressions
+Implement assignments.
+```rust
+let a = 1;
+a = 2;
+a = true; // <- type error
+```

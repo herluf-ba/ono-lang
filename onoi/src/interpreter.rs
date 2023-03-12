@@ -15,7 +15,7 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, statements: Vec<Stmt>) -> Result<(), Vec<Error>> {
+    pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<(), Vec<Error>> {
         let mut errors = Vec::new();
         for stmt in statements {
             match self.visit_statement(&stmt) {
@@ -25,6 +25,7 @@ impl Interpreter {
                 }
             }
         }
+        print!("{:?}", self.scope);
 
         if errors.len() > 0 {
             Err(errors)
