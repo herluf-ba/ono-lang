@@ -4,7 +4,9 @@
 - [ ] End to end tests (blocked until we have `main` entrypoint)
 
 create test suite that reads source files and compares to expected output.
+Extend `onoi` to return the value of the last expression. Statements will return `()`.
 Then test all language features and all error productions.
+
 
 - [ ] Block expressions
 
