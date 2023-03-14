@@ -7,18 +7,12 @@ create test suite that reads source files and compares to expected output.
 Extend `onoi` to return the value of the last expression. Statements will return `()`.
 Then test all language features and all error productions.
 
-
-- [x] Block expressions
-
-Implement a rust style block that returns the value of the last expression in it. 
-Blocks must end in an expression
+- [ ] While loops
+Implement good old while loops
 ```rust
-let a = 3
-let c = {
-  let b = 1 + 2;
-  a + b
-};
-// c -> 6
+while a < b {
+  a = a + 1;
+}
 ```
 
 - [ ] Tuple indexing
@@ -35,12 +29,25 @@ Implement of "unpacking" a tuple into variables. Only
 
 ```rust
 let t = (1, 2, 3, 4, 5);
-let a, b, c, d, e = t; // a = 1, b = 2, c = 3, d = 4, e = 5
-let f, g, _ = t; // f = 1, g = 2 rest is unused.
-let a, b, c, d, e, f = t; // type error: t is length 5 but 6 elements extracted  
+let (a, b, c, d, e) = t; // a = 1, b = 2, c = 3, d = 4, e = 5
+let (f, g, ...) = t; // f = 1, g = 2 rest is unused.
+let (a, b, c, d, e, f) = t; // type error: t is length 5 but 6 elements extracted  
 ```
 
-- [ ] If-expressions
+- [x] Block expressions
+
+Implement a rust style block that returns the value of the last expression in it. 
+Blocks must end in an expression
+```rust
+let a = 3
+let c = {
+  let b = 1 + 2;
+  a + b
+};
+// c -> 6
+```
+
+- [x] If-expressions
 
 Implement if-expressions. Each branch must have the same return type.
 If expressions must have an else branch.
@@ -56,7 +63,7 @@ if 1 > 2 {
   let bar = false;
 }; // An expression of type ()
 ```
-although the trailing ';' is uncool, and the else branch is mandatory.
+although the trailing ';' is uncool
 
 - [x] Expressions
 

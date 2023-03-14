@@ -16,6 +16,8 @@ pub enum TokenKind {
 
     // Keywords
     LET,
+    IF,
+    ELSE,
     STRINGKW,
     NUMBERKW,
     BOOL,

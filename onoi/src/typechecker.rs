@@ -20,8 +20,8 @@ impl Typechecker {
         for stmt in statements {
             match self.visit_statement(&stmt) {
                 Ok(_) => {}
-                Err(err) => {
-                    errors.push(err);
+                Err(mut errs) => {
+                    errors.append(&mut errs);
                 }
             }
         }
@@ -33,7 +33,7 @@ impl Typechecker {
         }
     }
 
-    fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Error> {
+    fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Vec<Error>> {
         match statement {
             Stmt::Expression { expr } => {
                 self.visit_expression(expr)?;
@@ -46,13 +46,13 @@ impl Typechecker {
                 let initializer_type = self.visit_expression(initializer)?;
                 if let Some(ttype) = ttype {
                     if initializer_type != *ttype {
-                        return Err(Error::type_error(
+                        return Err(vec![Error::type_error(
                             TypeError::T003 {
                                 declared_as: ttype.clone(),
                                 initialized_as: initializer_type.clone(),
                             },
                             name.clone(),
-                        ));
+                        )]);
                     }
                 }
 
@@ -62,7 +62,7 @@ impl Typechecker {
         Ok(())
     }
 
-    pub fn visit_expression(&mut self, e: &Expr) -> Result<Type, Error> {
+    pub fn visit_expression(&mut self, e: &Expr) -> Result<Type, Vec<Error>> {
         match e {
             Expr::Literal { value } => Ok(Type::from(value)),
             Expr::Group { expr } => self.visit_expression(expr),
@@ -70,7 +70,7 @@ impl Typechecker {
                 inners
                     .iter()
                     .map(|expr| self.visit_expression(expr))
-                    .collect::<Result<Vec<Type>, Error>>()?,
+                    .collect::<Result<Vec<Type>, Vec<Error>>>()?,
             )),
             Expr::Logical {
                 operator,
@@ -78,27 +78,27 @@ impl Typechecker {
                 right,
             } => match (self.visit_expression(left)?, self.visit_expression(right)?) {
                 (Type::Bool, Type::Bool) => Ok(Type::Bool),
-                (left, right) => Err(Error::type_error(
+                (left, right) => Err(vec![Error::type_error(
                     TypeError::T001 { left, right },
                     operator.clone(),
-                )),
+                )]),
             },
             Expr::Unary { operator, expr } => {
                 let operand = self.visit_expression(expr)?;
                 match operator.kind {
                     TokenKind::BANG => match operand {
                         Type::Bool => Ok(Type::Bool),
-                        _ => Err(Error::type_error(
+                        _ => Err(vec![Error::type_error(
                             TypeError::T002 { operand },
                             operator.clone(),
-                        )),
+                        )]),
                     },
                     TokenKind::MINUS => match operand {
                         Type::Number => Ok(Type::Number),
-                        _ => Err(Error::type_error(
+                        _ => Err(vec![Error::type_error(
                             TypeError::T002 { operand },
                             operator.clone(),
-                        )),
+                        )]),
                     },
                     _ => language_error(&format!("unknown unary operator")),
                 }
@@ -114,17 +114,17 @@ impl Typechecker {
                     TokenKind::PLUS => match (left, right) {
                         (Type::Number, Type::Number) => Ok(Type::Number),
                         (Type::Text, Type::Text) => Ok(Type::Text),
-                        (left, right) => Err(Error::type_error(
+                        (left, right) => Err(vec![Error::type_error(
                             TypeError::T001 { left, right },
                             operator.clone(),
-                        )),
+                        )]),
                     },
                     TokenKind::MINUS | TokenKind::STAR | TokenKind::SLASH => {
                         if left != Type::Number || right != Type::Number {
-                            Err(Error::type_error(
+                            Err(vec![Error::type_error(
                                 TypeError::T001 { left, right },
                                 operator.clone(),
-                            ))
+                            )])
                         } else {
                             Ok(Type::Number)
                         }
@@ -134,20 +134,20 @@ impl Typechecker {
                     | TokenKind::GREATER
                     | TokenKind::GREATEREQUAL => {
                         if left != Type::Number || right != Type::Number {
-                            Err(Error::type_error(
+                            Err(vec![Error::type_error(
                                 TypeError::T001 { left, right },
                                 operator.clone(),
-                            ))
+                            )])
                         } else {
                             Ok(Type::Bool)
                         }
                     }
                     TokenKind::EQUALEQUAL | TokenKind::BANGEQUAL => {
                         if left != right {
-                            Err(Error::type_error(
+                            Err(vec![Error::type_error(
                                 TypeError::T001 { left, right },
                                 operator.clone(),
-                            ))
+                            )])
                         } else {
                             Ok(Type::Bool)
                         }
@@ -159,25 +159,25 @@ impl Typechecker {
                 if let Some(ttype) = self.scope.get(&name.lexeme) {
                     Ok(ttype.clone())
                 } else {
-                    Err(Error::type_error(TypeError::T004, name.clone()))
+                    Err(vec![Error::type_error(TypeError::T004, name.clone())])
                 }
             }
             Expr::Assign { name, expr } => {
                 let assigned_to = self.visit_expression(expr)?;
                 if let Some(declared_as) = self.scope.get(&name.lexeme) {
                     return if *declared_as != assigned_to {
-                        Err(Error::type_error(
+                        Err(vec![Error::type_error(
                             TypeError::T005 {
                                 declared_as: declared_as.clone(),
                                 assigned_to,
                             },
                             name.clone(),
-                        ))
+                        )])
                     } else {
                         Ok(assigned_to)
                     };
                 } else {
-                    Err(Error::type_error(TypeError::T004, name.clone()))
+                    Err(vec![Error::type_error(TypeError::T004, name.clone())])
                 }
             }
             Expr::Block {
@@ -196,6 +196,29 @@ impl Typechecker {
                 self.scope.pop();
                 Ok(val)
             },
+            Expr::If { keyword, condition, then, eelse } => {
+                let mut errors = Vec::new();
+                let condition_t = self.visit_expression(condition)?; 
+                if condition_t != Type::Bool {
+                    errors.push(Error::type_error(TypeError::T006 { found: condition_t }, keyword.clone()));
+                }
+
+                let then = self.visit_expression(then)?;
+                let eelse_t = if let Some(eelse) = eelse { self.visit_expression(eelse)? } else { Type::Tuple(Vec::new()) };
+                if then != eelse_t {
+                    if eelse.is_none() {
+                        errors.push(Error::type_error(TypeError::T007 { then: then.clone() }, keyword.clone()));
+                    } else {
+                        errors.push(Error::type_error(TypeError::T008 { then: then.clone(), eelse: eelse_t }, keyword.clone())); 
+                    }
+                };
+
+                if errors.len() > 0 {
+                    Err(errors)
+                } else {
+                    Ok(then)
+                }
+            },
         }
     }
 }
@@ -209,7 +232,7 @@ mod test {
     use TokenKind::*;
 
     #[test]
-    fn tuple() -> Result<(), Error> {
+    fn tuple() -> Result<(), Vec<Error>> {
         let expr = Tuple {
             inners: vec![
                 Binary {
@@ -242,7 +265,7 @@ mod test {
     }
 
     #[test]
-    fn logical() -> Result<(), Error> {
+    fn logical() -> Result<(), Vec<Error>> {
         let expr_ok = Logical {
             left: Box::new(Literal {
                 value: Token::new(TRUE, 0, 0, "true"),
@@ -267,19 +290,19 @@ mod test {
 
         assert_eq!(
             Typechecker::new().visit_expression(&expr_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T001 {
                     left: Type::Bool,
                     right: Type::Number
                 },
                 Token::new(OR, 0, 4, "or")
-            ))
+            )])
         );
         Ok(())
     }
 
     #[test]
-    fn unary_negation() -> Result<(), Error> {
+    fn unary_negation() -> Result<(), Vec<Error>> {
         let expr_minus_ok = Unary {
             operator: Token::new(MINUS, 0, 0, "-"),
             expr: Box::new(Literal {
@@ -299,12 +322,12 @@ mod test {
         };
         assert_eq!(
             Typechecker::new().visit_expression(&expr_minus_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T002 {
                     operand: Type::Bool
                 },
                 Token::new(MINUS, 0, 0, "-")
-            ))
+            )])
         );
 
         let expr_bang_ok = Unary {
@@ -326,18 +349,18 @@ mod test {
         };
         assert_eq!(
             Typechecker::new().visit_expression(&expr_bang_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T002 {
                     operand: Type::Number
                 },
                 Token::new(BANG, 0, 0, "!")
-            ))
+            )])
         );
         Ok(())
     }
 
     #[test]
-    fn binary_addition() -> Result<(), Error> {
+    fn binary_addition() -> Result<(), Vec<Error>> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -376,19 +399,19 @@ mod test {
         };
         assert_eq!(
             Typechecker::new().visit_expression(&expr_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(PLUS, 0, 4, "+")
-            ))
+            )])
         );
         Ok(())
     }
 
     #[test]
-    fn number_comparison() -> Result<(), Error> {
+    fn number_comparison() -> Result<(), Vec<Error>> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -413,19 +436,19 @@ mod test {
 
         assert_eq!(
             Typechecker::new().visit_expression(&expr_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(LESS, 0, 2, "<")
-            ))
+            )])
         );
         Ok(())
     }
 
     #[test]
-    fn equality() -> Result<(), Error> {
+    fn equality() -> Result<(), Vec<Error>> {
         let expr_ok = Binary {
             left: Box::new(Literal {
                 value: Token::new(NUMBER(1.0), 0, 0, "1"),
@@ -450,13 +473,13 @@ mod test {
 
         assert_eq!(
             Typechecker::new().visit_expression(&expr_bad),
-            Err(Error::type_error(
+            Err(vec![Error::type_error(
                 TypeError::T001 {
                     left: Type::Number,
                     right: Type::Text
                 },
                 Token::new(EQUALEQUAL, 0, 2, "==")
-            ))
+            )])
         );
         Ok(())
     }

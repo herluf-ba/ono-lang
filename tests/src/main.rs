@@ -55,7 +55,7 @@ fn run_test(path: &Path) -> Result<(), String> {
     };
 
     let result = match onoi::run(code) {
-        Ok(()) => Ok(()),
+        Ok(_val) => Ok(()), // TODO: Match val with _out
         Err(mut errors) => {
             let filename = path.to_str().unwrap();
             let lines = code.split('\n').collect::<Vec<_>>();

@@ -26,21 +26,24 @@ pub enum SyntaxError {
     S009,
     /// Unterminated block
     S010,
+    /// No body after if expression condition
+    S011,
 }
 
 impl fmt::Display for SyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SyntaxError::S001 => write!(f, "{}", "S001"),
-            SyntaxError::S002 => write!(f, "{}", "S002"),
-            SyntaxError::S003 => write!(f, "{}", "S003"),
-            SyntaxError::S004 => write!(f, "{}", "S004"),
-            SyntaxError::S005(_) => write!(f, "{}", "S005"),
-            SyntaxError::S006 => write!(f, "{}", "S006"),
-            SyntaxError::S007 => write!(f, "{}", "S007"),
-            SyntaxError::S008 => write!(f, "{}", "S008"),
-            SyntaxError::S009 => write!(f, "{}", "S009"),
-            SyntaxError::S010 => write!(f, "{}", "S010"),
+            SyntaxError::S001 => write!(f, "S001"),
+            SyntaxError::S002 => write!(f, "S002"),
+            SyntaxError::S003 => write!(f, "S003"),
+            SyntaxError::S004 => write!(f, "S004"),
+            SyntaxError::S005(_) => write!(f, "S005"),
+            SyntaxError::S006 => write!(f, "S006"),
+            SyntaxError::S007 => write!(f, "S007"),
+            SyntaxError::S008 => write!(f, "S008"),
+            SyntaxError::S009 => write!(f, "S009"),
+            SyntaxError::S010 => write!(f, "S010"),
+            SyntaxError::S011 => write!(f, "S011"),
         }
     }
 }
@@ -65,16 +68,25 @@ pub enum TypeError {
         declared_as: Type,
         assigned_to: Type,
     },
+    /// if expression condition is not bool
+    T006 { found: Type },
+    /// branch type mismatch (no else variant) 
+    T007 { then: Type },
+    /// branch type mismatch 
+    T008 { then: Type, eelse: Type },
 }
 
 impl fmt::Display for TypeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TypeError::T001 { left: _, right:_ } => write!(f, "{}", "T001"),
-            TypeError::T002 { operand: _ } => write!(f, "{}", "T002"),
-            TypeError::T003 { declared_as: _, initialized_as: _ } => write!(f, "{}", "T003"),
-            TypeError::T004 => write!(f, "{}", "T004"),
-            TypeError::T005 { declared_as: _, assigned_to: _ } => write!(f, "{}", "T005"),
+            TypeError::T001 { .. } => write!(f, "T001"),
+            TypeError::T002 { .. } => write!(f, "T002"),
+            TypeError::T003 { .. } => write!(f, "T003"),
+            TypeError::T004 => write!(f, "T004"),
+            TypeError::T005 { .. } => write!(f, "T005"),
+            TypeError::T006 { .. } => write!(f, "T006"),
+            TypeError::T007 { .. } => write!(f, "T007"),
+            TypeError::T008 { .. } => write!(f, "T008"),
         }
     }
 }
@@ -210,6 +222,7 @@ impl Error {
                 SyntaxError::S008 => format!("'{}' must be initialized", self.token.lexeme),
                 SyntaxError::S009 => format!("cannot assign to left hand side"),
                 SyntaxError::S010 => format!("unterminated block starting here"),
+                SyntaxError::S011 => format!("expected then-block after this"),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(
@@ -240,6 +253,20 @@ impl Error {
                     "cannot assign {} to {}",
                     format!("{}", assigned_to).cyan(),
                     format!("{}", declared_as).cyan()
+                ),
+                TypeError::T006 { found } => format!(
+                    "expected {} condition but found {}",
+                    format!("{}", Type::Bool).cyan(),
+                    format!("{}", found).cyan()
+                ),
+                TypeError::T007 { then } => format!(
+                    "expected else branch of same type as then branch which is {}",
+                    format!("{}", then).cyan()
+                ),
+                TypeError::T008 { then, eelse } =>  format!(
+                    "expected then and else branches to have same type, found {} and {}",
+                    format!("{}", then).cyan(),
+                    format!("{}", eelse).cyan()
                 ),
             },
             ErrorKind::Runtime(errno) => match errno {

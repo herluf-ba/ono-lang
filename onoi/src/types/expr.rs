@@ -38,6 +38,12 @@ pub enum Expr {
     Block {
         statements: Vec<Stmt>,
         finally: Option<Box<Expr>>
+    },
+    If {
+        keyword: Token,
+        condition: Box<Expr>,
+        then: Box<Expr>,          // NOTE: This is always a Expr::Block, there's just no way to encode it
+        eelse: Option<Box<Expr>>, // This on the other hand is either a block or an if
     }
 }
 

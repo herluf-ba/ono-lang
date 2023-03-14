@@ -262,6 +262,8 @@ impl Lexer {
             "string" => TokenKind::STRINGKW,
             "number" => TokenKind::NUMBERKW,
             "bool" => TokenKind::BOOL,
+            "if" => TokenKind::IF,
+            "else" => TokenKind::ELSE,
             identifier => TokenKind::IDENTIFIER(identifier.to_string()),
         };
 

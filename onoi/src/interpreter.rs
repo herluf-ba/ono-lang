@@ -169,7 +169,16 @@ impl Interpreter {
                 };
                 self.scope.pop();
                 Ok(val)
-            }
+            },
+            Expr::If { keyword: _, condition, then, eelse } => {
+                if self.visit_expression(condition)?.is_truthy() {
+                    self.visit_expression(then)
+                } else if let Some(eelse) = eelse {
+                    self.visit_expression(eelse)
+                } else {
+                    Ok(Value::Tuple(Vec::new()))
+                }
+            },
         }
     }
 }

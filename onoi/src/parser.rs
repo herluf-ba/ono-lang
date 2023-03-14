@@ -8,7 +8,8 @@ use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 /// letStmt     -> "let" IDENTIFIER (":" type)? "=" expression ";" ;
 /// exprStmt    -> expression ";" ;
 
-/// expression  -> assignment | block;
+/// expression  -> assignment | block | if ;
+/// if          -> "if" logic_or block ( "else" ( block | if ) )? ;
 /// block       -> "{" ( statement* assignment )? "}" ;
 /// assignment  -> IDENTIFIER "=" assignment | logic_or ;
 /// logic_or    -> logic_and ( "or" logic_and )* ;
@@ -124,6 +125,10 @@ impl Parser {
             return self.block();
         }
 
+        if self.consume(&TokenKind::IF).is_some() {
+            return self.if_expression();
+        }
+
         self.assigment()
     }
 
@@ -137,12 +142,16 @@ impl Parser {
 
         let opening_token = self.previous().clone();
         let mut statements = vec![];
-        
+
         // TODO: This can_find_before check seems like it would be awfully slow
         while !self.is_at_end()
             && self.can_find_before(&TokenKind::SEMICOLON, &TokenKind::RIGHTBRACE)
         {
             statements.push(self.statement()?);
+        }
+
+        if self.consume(&TokenKind::RIGHTBRACE).is_some() {
+            return Ok(Expr::Block { statements, finally: None });
         }
 
         let finally = Some(Box::new(self.assigment()?));
@@ -154,6 +163,40 @@ impl Parser {
         Ok(Expr::Block {
             statements,
             finally,
+        })
+    }
+
+    fn if_expression(&mut self) -> Result<Expr, Error> {
+        let keyword = self.previous().clone();
+        let condition = Box::new(self.logic_or()?);
+
+        if self.consume(&TokenKind::LEFTBRACE).is_none() {
+            return Err(Error::syntax_error(
+                SyntaxError::S011,
+                self.previous().clone(),
+            ));
+        }
+        let then = Box::new(self.block()?);
+
+        let eelse = if self.consume(&TokenKind::ELSE).is_none() {
+            None
+        } else if self.consume(&TokenKind::IF).is_some() {
+            Some(Box::new(self.if_expression()?))
+        } else {
+            if self.consume(&TokenKind::LEFTBRACE).is_none() {
+                return Err(Error::syntax_error(
+                    SyntaxError::S011,
+                    self.previous().clone(),
+                ));
+            }
+            Some(Box::new(self.block()?))
+        };
+
+        Ok(Expr::If {
+            keyword,
+            condition,
+            then,
+            eelse,
         })
     }
 
