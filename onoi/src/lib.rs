@@ -17,6 +17,9 @@ use types::Value;
 pub fn run(program: &str) -> Result<Value, Vec<Error>> {
     let tokens = Lexer::new().tokenize(program)?;
     let statements = Parser::new().parse(tokens)?;
+
+    println!("{:?}", statements); 
+
     Typechecker::new().check(&statements)?;
     Ok(Interpreter::new().interpret(&statements)?)
 }

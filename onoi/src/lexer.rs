@@ -140,6 +140,8 @@ impl Lexer {
             ")" => self.add_token(TokenKind::RIGHTPAREN),
             "[" => self.add_token(TokenKind::LEFTBRACKET),
             "]" => self.add_token(TokenKind::RIGHTBRACKET),
+            "{" => self.add_token(TokenKind::LEFTBRACE),
+            "}" => self.add_token(TokenKind::RIGHTBRACE),
             "-" => self.add_token(TokenKind::MINUS),
             "+" => self.add_token(TokenKind::PLUS),
             "*" => self.add_token(TokenKind::STAR),

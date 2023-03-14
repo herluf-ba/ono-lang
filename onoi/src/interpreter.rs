@@ -41,9 +41,7 @@ impl Interpreter {
 
     pub fn visit_statement(&mut self, statement: &Stmt) -> Result<Value, Error> {
         match statement {
-            Stmt::Expression { expr } => {
-                Ok(self.visit_expression(expr)?)
-            }
+            Stmt::Expression { expr } => Ok(self.visit_expression(expr)?),
             Stmt::Let {
                 name,
                 ttype: _,
@@ -137,23 +135,41 @@ impl Interpreter {
                     TokenKind::BANGEQUAL => return Ok(Value::Bool(left != right)),
                     _ => language_error(&format!("unknown binary operator '{}'", operator.lexeme)),
                 }
-            },
+            }
             Expr::Variable { name } => {
                 if let Some(value) = self.scope.get(&name.lexeme) {
                     Ok(value.clone())
                 } else {
-                    language_error(
-                        "undefined variable that was not type checked"
-                    );
+                    language_error("undefined variable that was not type checked");
                 }
             }
             Expr::Assign { name, expr } => {
                 let value = self.visit_expression(expr)?;
                 if let Err(_) = self.scope.assign(&name.lexeme, value.clone()) {
-                    language_error(&format!("assignment target '{}' is not in scope", name.lexeme))
+                    language_error(&format!(
+                        "assignment target '{}' is not in scope",
+                        name.lexeme
+                    ))
                 }
                 Ok(value)
-            }, 
+            }
+
+            Expr::Block {
+                statements,
+                finally,
+            } => {
+                self.scope = self.scope.new_nested();
+                for stmt in statements {
+                    self.visit_statement(stmt)?;
+                }
+                let val = if let Some(expr) = finally {
+                    self.visit_expression(expr)?
+                } else {
+                    Value::Tuple(Vec::new())
+                };
+                self.scope.pop();
+                Ok(val)
+            }
         }
     }
 }

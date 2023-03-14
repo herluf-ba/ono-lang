@@ -1,5 +1,7 @@
 use crate::types::Token;
 
+use super::Stmt;
+
 /// Represents a language construct that can be evaluated to a value
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -33,5 +35,9 @@ pub enum Expr {
         name: Token,
         expr: Box<Expr>
     },
+    Block {
+        statements: Vec<Stmt>,
+        finally: Option<Box<Expr>>
+    }
 }
 

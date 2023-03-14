@@ -6,6 +6,8 @@ pub enum TokenKind {
     RIGHTPAREN,
     LEFTBRACKET,
     RIGHTBRACKET,
+    LEFTBRACE,
+    RIGHTBRACE,
 
     COMMA,
     EQUAL,

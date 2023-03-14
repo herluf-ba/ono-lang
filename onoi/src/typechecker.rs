@@ -166,14 +166,35 @@ impl Typechecker {
                 let assigned_to = self.visit_expression(expr)?;
                 if let Some(declared_as) = self.scope.get(&name.lexeme) {
                     return if *declared_as != assigned_to {
-                        Err(Error::type_error(TypeError::T005 { declared_as: declared_as.clone(), assigned_to }, name.clone()))
-                    } else { 
+                        Err(Error::type_error(
+                            TypeError::T005 {
+                                declared_as: declared_as.clone(),
+                                assigned_to,
+                            },
+                            name.clone(),
+                        ))
+                    } else {
                         Ok(assigned_to)
-                    }
+                    };
                 } else {
                     Err(Error::type_error(TypeError::T004, name.clone()))
                 }
-
+            }
+            Expr::Block {
+                statements,
+                finally,
+            } => {
+                self.scope = self.scope.new_nested();
+                for stmt in statements {
+                    self.visit_statement(stmt)?;
+                }
+                let val = if let Some(expr) = finally {
+                    self.visit_expression(expr)?
+                } else {
+                    Type::Tuple(Vec::new())
+                };
+                self.scope.pop();
+                Ok(val)
             },
         }
     }

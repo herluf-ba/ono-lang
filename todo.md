@@ -8,10 +8,10 @@ Extend `onoi` to return the value of the last expression. Statements will return
 Then test all language features and all error productions.
 
 
-- [ ] Block expressions
+- [x] Block expressions
 
-Implement a rust style block that returns the value of the last expression in it.
-Implicitly return () if the there is no such expression
+Implement a rust style block that returns the value of the last expression in it. 
+Blocks must end in an expression
 ```rust
 let a = 3
 let c = {
@@ -19,11 +19,6 @@ let c = {
   a + b
 };
 // c -> 6
-
-let d = {
-  let x = true;
-};
-// d -> ()
 ```
 
 - [ ] Tuple indexing

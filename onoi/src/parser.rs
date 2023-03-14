@@ -2,15 +2,14 @@ use crate::error::{Error, SyntaxError};
 use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 
 /// ONO GRAMMAR
-/// program     -> declaration* EOF;
+/// program     -> statement* EOF;
 
-/// declaration -> letDecl | statement;
-/// letDecl     -> "let" IDENTIFIER (":" type)? "=" expression ";" ;
+/// statement   -> letStmt | exprStmt ;
+/// letStmt     -> "let" IDENTIFIER (":" type)? "=" expression ";" ;
+/// exprStmt    -> expression ";" ;
 
-/// statement   -> exprStmt ;
-/// exprStmt    -> expression ';' ;
-
-/// expression  -> assignment ; 
+/// expression  -> assignment | block;
+/// block       -> "{" ( statement* assignment )? "}" ;
 /// assignment  -> IDENTIFIER "=" assignment | logic_or ;
 /// logic_or    -> logic_and ( "or" logic_and )* ;
 /// logic_and   -> equality ( "and" equality )* ;
@@ -23,7 +22,7 @@ use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 /// tuple       -> "(" expression ( "," expression )* ")" ;
 
 /// type        -> list_type | tuple_type | simple_type "?"? ;
-/// list_type   -> "[" bottom_type "]" ;
+/// list_type   -> "[" type ( "," type )* "]" ;
 /// tuple_type  -> "(" type ("," type )* ")" ;
 /// simple_type -> "string" | "number" | "bool" ;
 
@@ -47,7 +46,7 @@ impl Parser {
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
-            match self.declaration() {
+            match self.statement() {
                 Ok(statement) => {
                     statements.push(statement);
                 }
@@ -65,12 +64,12 @@ impl Parser {
         }
     }
 
-    fn declaration(&mut self) -> Result<Stmt, Error> {
+    fn statement(&mut self) -> Result<Stmt, Error> {
         if self.consume(&TokenKind::LET).is_some() {
             return self.let_declaration();
         }
 
-        self.statement()
+        self.expression_statement()
     }
 
     fn let_declaration(&mut self) -> Result<Stmt, Error> {
@@ -91,10 +90,7 @@ impl Parser {
         };
 
         if self.consume(&TokenKind::EQUAL).is_none() {
-            return Err(Error::syntax_error(
-                SyntaxError::S008,
-                name,
-            ));
+            return Err(Error::syntax_error(SyntaxError::S008, name));
         }
 
         let initializer = self.expression()?;
@@ -111,10 +107,6 @@ impl Parser {
         }
     }
 
-    fn statement(&mut self) -> Result<Stmt, Error> {
-        self.expression_statement()
-    }
-
     fn expression_statement(&mut self) -> Result<Stmt, Error> {
         let expr = self.expression()?;
         if self.consume(&TokenKind::SEMICOLON).is_none() {
@@ -128,7 +120,41 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expr, Error> {
+        if self.consume(&TokenKind::LEFTBRACE).is_some() {
+            return self.block();
+        }
+
         self.assigment()
+    }
+
+    fn block(&mut self) -> Result<Expr, Error> {
+        if self.consume(&TokenKind::RIGHTBRACE).is_some() {
+            return Ok(Expr::Block {
+                statements: Vec::new(),
+                finally: None,
+            });
+        }
+
+        let opening_token = self.previous().clone();
+        let mut statements = vec![];
+        
+        // TODO: This can_find_before check seems like it would be awfully slow
+        while !self.is_at_end()
+            && self.can_find_before(&TokenKind::SEMICOLON, &TokenKind::RIGHTBRACE)
+        {
+            statements.push(self.statement()?);
+        }
+
+        let finally = Some(Box::new(self.assigment()?));
+
+        if self.consume(&TokenKind::RIGHTBRACE).is_none() {
+            return Err(Error::syntax_error(SyntaxError::S010, opening_token));
+        }
+
+        Ok(Expr::Block {
+            statements,
+            finally,
+        })
     }
 
     fn assigment(&mut self) -> Result<Expr, Error> {
@@ -255,8 +281,13 @@ impl Parser {
             });
         }
 
-        if self.consume(&TokenKind::IDENTIFIER("".to_string())).is_some() {
-            return Ok(Expr::Variable { name: self.previous().clone() });
+        if self
+            .consume(&TokenKind::IDENTIFIER("".to_string()))
+            .is_some()
+        {
+            return Ok(Expr::Variable {
+                name: self.previous().clone(),
+            });
         }
 
         if self.is_token_of_kind(&[TokenKind::LEFTPAREN]) {
@@ -363,6 +394,22 @@ impl Parser {
             return false;
         }
         self.peek().kind.is_same(kind)
+    }
+
+    fn can_find_before(&self, find: &TokenKind, before: &TokenKind) -> bool {
+        let mut i = self.current;
+        loop {
+            let tok = &self.tokens.get(i).unwrap().kind;
+            if tok.is_same(find) {
+                return true;
+            }
+
+            if tok.is_same(before) || tok.is_same(&TokenKind::EOF) {
+                return false;
+            }
+
+            i += 1;
+        }
     }
 
     fn is_token_of_kind(&mut self, kinds: &[TokenKind]) -> bool {

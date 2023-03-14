@@ -24,6 +24,8 @@ pub enum SyntaxError {
     S008,
     /// Invalid assigment target
     S009,
+    /// Unterminated block
+    S010,
 }
 
 impl fmt::Display for SyntaxError {
@@ -38,6 +40,7 @@ impl fmt::Display for SyntaxError {
             SyntaxError::S007 => write!(f, "{}", "S007"),
             SyntaxError::S008 => write!(f, "{}", "S008"),
             SyntaxError::S009 => write!(f, "{}", "S009"),
+            SyntaxError::S010 => write!(f, "{}", "S010"),
         }
     }
 }
@@ -197,7 +200,7 @@ impl Error {
                 SyntaxError::S002 => format!("unterminated string starting here"),
                 SyntaxError::S003 => format!("unterminated parenthesis starting here"),
                 SyntaxError::S004 => {
-                    format!("expected expression with this '{}'", self.token.lexeme)
+                    format!("expected expression")
                 }
                 SyntaxError::S005(kind) => {
                     format!("expected {:?} after '{}'", kind, self.token.lexeme)
@@ -206,6 +209,7 @@ impl Error {
                 SyntaxError::S007 => format!("expected identifier after '{}'", self.token.lexeme),
                 SyntaxError::S008 => format!("'{}' must be initialized", self.token.lexeme),
                 SyntaxError::S009 => format!("cannot assign to left hand side"),
+                SyntaxError::S010 => format!("unterminated block starting here"),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(
@@ -228,7 +232,7 @@ impl Error {
                     format!("{}", declared_as).cyan(),
                     format!("{}", initialized_as).cyan()
                 ),
-                TypeError::T004 => format!("'{}' is undefined here", self.token.lexeme),
+                TypeError::T004 => format!("'{}' is not in scope here", self.token.lexeme),
                 TypeError::T005 {
                     declared_as,
                     assigned_to,
