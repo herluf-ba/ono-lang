@@ -26,6 +26,22 @@ pub enum SyntaxError {
     S009,
 }
 
+impl fmt::Display for SyntaxError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SyntaxError::S001 => write!(f, "{}", "S001"),
+            SyntaxError::S002 => write!(f, "{}", "S002"),
+            SyntaxError::S003 => write!(f, "{}", "S003"),
+            SyntaxError::S004 => write!(f, "{}", "S004"),
+            SyntaxError::S005(_) => write!(f, "{}", "S005"),
+            SyntaxError::S006 => write!(f, "{}", "S006"),
+            SyntaxError::S007 => write!(f, "{}", "S007"),
+            SyntaxError::S008 => write!(f, "{}", "S008"),
+            SyntaxError::S009 => write!(f, "{}", "S009"),
+        }
+    }
+}
+
 /// A type error.
 /// These are caught before running the program.
 #[derive(Debug, PartialEq)]
@@ -48,11 +64,31 @@ pub enum TypeError {
     },
 }
 
+impl fmt::Display for TypeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TypeError::T001 { left: _, right:_ } => write!(f, "{}", "T001"),
+            TypeError::T002 { operand: _ } => write!(f, "{}", "T002"),
+            TypeError::T003 { declared_as: _, initialized_as: _ } => write!(f, "{}", "T003"),
+            TypeError::T004 => write!(f, "{}", "T004"),
+            TypeError::T005 { declared_as: _, assigned_to: _ } => write!(f, "{}", "T005"),
+        }
+    }
+}
+
 /// Runtime errors chrash the program.
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
     /// Division by zero
     R001,
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RuntimeError::R001 => write!(f, "{}", "R001"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -147,9 +183,9 @@ impl Error {
 
     fn format_message(&self) -> String {
         let identifier = match &self.kind {
-            ErrorKind::Syntax(_) => "error",
-            ErrorKind::Type(_) => "type error",
-            ErrorKind::Runtime(_) => "runtime error",
+            ErrorKind::Syntax(kind) => format!("[{}] error", kind),
+            ErrorKind::Type(kind) => format!("[{}] type error", kind),
+            ErrorKind::Runtime(kind) => format!("[{}] runtime error", kind),
         }
         .bright_red();
 

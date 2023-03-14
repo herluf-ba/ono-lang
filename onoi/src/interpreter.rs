@@ -15,29 +15,34 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<(), Vec<Error>> {
+    pub fn interpret(&mut self, statements: &Vec<Stmt>) -> Result<Value, Vec<Error>> {
         let mut errors = Vec::new();
-        for stmt in statements {
+        let mut return_value = Value::Tuple(vec![]);
+
+        for (i, stmt) in statements.iter().enumerate() {
             match self.visit_statement(&stmt) {
-                Ok(_) => {}
+                Ok(val) => {
+                    if i == statements.len() - 1 {
+                        return_value = val;
+                    }
+                }
                 Err(error) => {
                     errors.push(error);
                 }
             }
         }
-        print!("{:?}", self.scope);
 
         if errors.len() > 0 {
             Err(errors)
         } else {
-            Ok(())
+            Ok(return_value)
         }
     }
 
-    pub fn visit_statement(&mut self, statement: &Stmt) -> Result<(), Error> {
+    pub fn visit_statement(&mut self, statement: &Stmt) -> Result<Value, Error> {
         match statement {
             Stmt::Expression { expr } => {
-                self.visit_expression(expr)?;
+                Ok(self.visit_expression(expr)?)
             }
             Stmt::Let {
                 name,
@@ -46,10 +51,9 @@ impl Interpreter {
             } => {
                 let value = self.visit_expression(initializer)?;
                 self.scope.define(&name.lexeme, value);
+                Ok(Value::Tuple(vec![]))
             }
         }
-
-        Ok(())
     }
 
     pub fn visit_expression(&mut self, e: &Expr) -> Result<Value, Error> {

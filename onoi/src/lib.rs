@@ -11,12 +11,12 @@ use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
 use typechecker::Typechecker;
+use types::Value;
 
 /// Runs a ono program
-pub fn run(program: &str) -> Result<(), Vec<Error>> {
+pub fn run(program: &str) -> Result<Value, Vec<Error>> {
     let tokens = Lexer::new().tokenize(program)?;
     let statements = Parser::new().parse(tokens)?;
     Typechecker::new().check(&statements)?;
-    Interpreter::new().interpret(&statements)?;
-    Ok(())
+    Ok(Interpreter::new().interpret(&statements)?)
 }

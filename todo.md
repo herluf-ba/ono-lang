@@ -1,6 +1,7 @@
 
-# Roadmap
-- [ ] End to end tests
+### The endless todo
+
+- [ ] End to end tests (blocked until we have `main` entrypoint)
 
 create test suite that reads source files and compares to expected output.
 Then test all language features and all error productions.

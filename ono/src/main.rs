@@ -43,6 +43,6 @@ fn main() {
                 if errors.len() > 1 { "errors" } else { "error" }
             );
         }
-        Ok(()) => {}
+        Ok(val) => println!("{}", val)
     };
 }
