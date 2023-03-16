@@ -44,6 +44,11 @@ pub enum Expr {
         condition: Box<Expr>,
         then: Box<Expr>,          // NOTE: This is always a Expr::Block, there's just no way to encode it
         eelse: Option<Box<Expr>>, // This on the other hand is either a block or an if
+    },
+    While {
+        keyword: Token,
+        condition: Box<Expr>,
+        body: Box<Expr>
     }
 }
 

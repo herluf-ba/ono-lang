@@ -18,6 +18,7 @@ pub enum TokenKind {
     LET,
     IF,
     ELSE,
+    WHILE,
     STRINGKW,
     NUMBERKW,
     BOOL,

@@ -7,7 +7,45 @@ create test suite that reads source files and compares to expected output.
 Extend `onoi` to return the value of the last expression. Statements will return `()`.
 Then test all language features and all error productions.
 
-- [ ] While loops
+- [ ] Add comments to the grammar
+Comments are ignored by the lexer right now. 
+This can be problematic as they can appear in the middle of another structure.
+```
+while 
+# This here is a comment
+  a < 10 {
+ a = a + 1;
+};
+```
+Adding comments to the grammar restricts where they can appear, making it easier to reason about transformations (think desugaring or auto formatting).
+
+- [ ] Refactor error messages
+Error messages could be more flexible.
+They should contain a `Vec<SrcArea>` each with line start and count along with highlight column start and count.
+That way it is possible to underline any series of square blocks of src code enabling scenarios like:
+```
+[E000] error: expected bool found number
+-> main.ono 3:7
+1  let a = 1;
+2
+3  while a + 1 {
+         ^^^^^
+```
+
+```
+[E000] error: expected branches to have same type but found bool and ()
+-> main.ono 3:7
+1  if true {
+       ...
+10     a > 2
+       ^^^^^
+11 } else {
+12     a < 2;
+       ^^^^^
+```
+It might be worthwhile to implement a `impl From<Expr> for SrcArea` to help spawn errors.
+
+- [x] While loops
 Implement good old while loops
 ```rust
 while a < b {

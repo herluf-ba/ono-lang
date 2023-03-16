@@ -8,7 +8,8 @@ use crate::types::{Expr, Stmt, Token, TokenKind, Type};
 /// letStmt     -> "let" IDENTIFIER (":" type)? "=" expression ";" ;
 /// exprStmt    -> expression ";" ;
 
-/// expression  -> assignment | block | if ;
+/// expression  -> assignment | block | if | while ;
+/// while       -> "while" logic_or block ;
 /// if          -> "if" logic_or block ( "else" ( block | if ) )? ;
 /// block       -> "{" ( statement* assignment )? "}" ;
 /// assignment  -> IDENTIFIER "=" assignment | logic_or ;
@@ -129,6 +130,10 @@ impl Parser {
             return self.if_expression();
         }
 
+        if self.consume(&TokenKind::WHILE).is_some() {
+            return self.while_expression();
+        }
+
         self.assigment()
     }
 
@@ -151,7 +156,10 @@ impl Parser {
         }
 
         if self.consume(&TokenKind::RIGHTBRACE).is_some() {
-            return Ok(Expr::Block { statements, finally: None });
+            return Ok(Expr::Block {
+                statements,
+                finally: None,
+            });
         }
 
         let finally = Some(Box::new(self.assigment()?));
@@ -198,6 +206,19 @@ impl Parser {
             then,
             eelse,
         })
+    }
+
+    fn while_expression(&mut self) -> Result<Expr, Error> {
+        let keyword = self.previous().clone();
+        let condition = Box::new(self.logic_or()?);
+        if self.consume(&TokenKind::LEFTBRACE).is_none() {
+            return Err(Error::syntax_error(
+                SyntaxError::S011,
+                self.previous().clone(),
+            ));
+        }
+        let body = Box::new(self.block()?);
+        Ok(Expr::While { keyword, condition, body })
     }
 
     fn assigment(&mut self) -> Result<Expr, Error> {

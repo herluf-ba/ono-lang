@@ -195,21 +195,45 @@ impl Typechecker {
                 };
                 self.scope.pop();
                 Ok(val)
-            },
-            Expr::If { keyword, condition, then, eelse } => {
+            }
+            Expr::If {
+                keyword,
+                condition,
+                then,
+                eelse,
+            } => {
                 let mut errors = Vec::new();
-                let condition_t = self.visit_expression(condition)?; 
+                let condition_t = self.visit_expression(condition)?;
                 if condition_t != Type::Bool {
-                    errors.push(Error::type_error(TypeError::T006 { found: condition_t }, keyword.clone()));
+                    errors.push(Error::type_error(
+                        TypeError::T006 {
+                            expected: Type::Bool,
+                            found: condition_t,
+                        },
+                        keyword.clone(),
+                    ));
                 }
 
                 let then = self.visit_expression(then)?;
-                let eelse_t = if let Some(eelse) = eelse { self.visit_expression(eelse)? } else { Type::Tuple(Vec::new()) };
+                let eelse_t = if let Some(eelse) = eelse {
+                    self.visit_expression(eelse)?
+                } else {
+                    Type::Tuple(Vec::new())
+                };
                 if then != eelse_t {
                     if eelse.is_none() {
-                        errors.push(Error::type_error(TypeError::T007 { then: then.clone() }, keyword.clone()));
+                        errors.push(Error::type_error(
+                            TypeError::T007 { then: then.clone() },
+                            keyword.clone(),
+                        ));
                     } else {
-                        errors.push(Error::type_error(TypeError::T008 { then: then.clone(), eelse: eelse_t }, keyword.clone())); 
+                        errors.push(Error::type_error(
+                            TypeError::T008 {
+                                then: then.clone(),
+                                eelse: eelse_t,
+                            },
+                            keyword.clone(),
+                        ));
                     }
                 };
 
@@ -218,7 +242,41 @@ impl Typechecker {
                 } else {
                     Ok(then)
                 }
-            },
+            }
+            Expr::While {
+                keyword,
+                condition,
+                body,
+            } => {
+                let mut errors = Vec::new();
+                let condition_t = self.visit_expression(condition)?;
+                if condition_t != Type::Bool {
+                    errors.push(Error::type_error(
+                        TypeError::T006 {
+                            expected: Type::Bool,
+                            found: condition_t,
+                        },
+                        keyword.clone(),
+                    ));
+                }
+
+                let body_t = self.visit_expression(body)?;
+                if body_t != Type::Tuple(Vec::new()) {
+                    errors.push(Error::type_error(
+                        TypeError::T006 {
+                            expected: Type::Tuple(Vec::new()),
+                            found: body_t,
+                        },
+                        keyword.clone(),
+                    ));
+                }
+
+                if errors.len() > 0 {
+                    Err(errors)
+                } else {
+                    Ok(Type::Tuple(Vec::new()))
+                }
+            }
         }
     }
 }

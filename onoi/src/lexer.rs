@@ -264,6 +264,7 @@ impl Lexer {
             "bool" => TokenKind::BOOL,
             "if" => TokenKind::IF,
             "else" => TokenKind::ELSE,
+            "while" => TokenKind::WHILE,
             identifier => TokenKind::IDENTIFIER(identifier.to_string()),
         };
 

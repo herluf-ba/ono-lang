@@ -26,8 +26,8 @@ pub enum SyntaxError {
     S009,
     /// Unterminated block
     S010,
-    /// No body after if expression condition
-    S011,
+    /// expected block
+    S011
 }
 
 impl fmt::Display for SyntaxError {
@@ -68,8 +68,8 @@ pub enum TypeError {
         declared_as: Type,
         assigned_to: Type,
     },
-    /// if expression condition is not bool
-    T006 { found: Type },
+    /// type mismatch
+    T006 { expected: Type, found: Type },
     /// branch type mismatch (no else variant) 
     T007 { then: Type },
     /// branch type mismatch 
@@ -222,7 +222,7 @@ impl Error {
                 SyntaxError::S008 => format!("'{}' must be initialized", self.token.lexeme),
                 SyntaxError::S009 => format!("cannot assign to left hand side"),
                 SyntaxError::S010 => format!("unterminated block starting here"),
-                SyntaxError::S011 => format!("expected then-block after this"),
+                SyntaxError::S011 => format!("expected block after this"),
             },
             ErrorKind::Type(errno) => match errno {
                 TypeError::T001 { left, right } => format!(
@@ -254,9 +254,9 @@ impl Error {
                     format!("{}", assigned_to).cyan(),
                     format!("{}", declared_as).cyan()
                 ),
-                TypeError::T006 { found } => format!(
-                    "expected {} condition but found {}",
-                    format!("{}", Type::Bool).cyan(),
+                TypeError::T006 { expected, found } => format!(
+                    "expected {} but found {}",
+                    format!("{}", expected).cyan(),
                     format!("{}", found).cyan()
                 ),
                 TypeError::T007 { then } => format!(
