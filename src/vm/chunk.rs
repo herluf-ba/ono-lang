@@ -45,44 +45,56 @@ impl Chunk {
         }
     }
 
+    pub fn disassemple_inctruction(&self, offset_: usize) -> (String, usize) {
+        let mut offset = offset_;
+        let mut out = String::new();
+        out += &format!("{:0>4} ", offset);
+
+        // Add line number
+        if offset > 0 && self.lines[offset - 1] == self.lines[offset] {
+            out += "   | ";
+        } else {
+            out += &format!("{:0>4} ", self.lines[offset]);
+        }
+
+        // Add op name
+        let op: OpCode = self.code[offset].into();
+        offset += 1;
+        out += &format!("{:<12} ", format!("{:?}", op));
+
+        // Get immidiates
+        let immidiates = match op {
+            OpCode::CONSTANT => {
+                let constant = self.code[offset];
+                let value = self.constants[constant as usize];
+                offset += 1;
+                format!("{:0>4} '{:#?}'", constant, value)
+            }
+            OpCode::CONSTANTLONG => {
+                let constant = u32::from_le_bytes([
+                    self.code[offset],
+                    self.code[offset + 1],
+                    self.code[offset + 2],
+                    0,
+                ]);
+                let value = self.constants[constant as usize];
+                offset += 3;
+                format!("{:0>12} '{:#?}'", constant, value)
+            }
+            _ => String::new(),
+        };
+        out += &immidiates;
+        (out, offset)
+    }
+
     /// Disassemples the chunk by constructing a string representing the inner bytecode
     fn disassemple(&self) -> String {
         let mut out = String::new();
         let mut offset = 0;
         while offset < self.code.len() {
-            out += &format!("{:0>4} ", offset);
-
-            if offset > 0 && self.lines[offset - 1] == self.lines[offset] {
-                out += "   | ";
-            } else {
-                out += &format!("{:0>4} ", self.lines[offset]);
-            }
-
-            let op: OpCode = self.code[offset].into();
-            offset += 1;
-            out += &format!("{:<12} ", format!("{:?}", op));
-            let immidiates = match op {
-                OpCode::RETURN => String::new(),
-                OpCode::CONSTANT => {
-                    let constant = self.code[offset];
-                    let value = self.constants[constant as usize];
-                    offset += 1;
-                    format!("{:0>4} '{:#?}'", constant, value)
-                }
-                OpCode::CONSTANTLONG => {
-                    let constant = u32::from_le_bytes([
-                        self.code[offset],
-                        self.code[offset + 1],
-                        self.code[offset + 2],
-                        0,
-                    ]);
-                    let value = self.constants[constant as usize];
-                    offset += 3;
-                    format!("{:0>12} '{:#?}'", constant, value)
-                }
-            };
-            out += &immidiates;
-            out += "\n";
+            let (dissasempled_op, step) = self.disassemple_inctruction(offset);
+            offset += step;
+            out += &(dissasempled_op + "\n");
         }
 
         out
