@@ -1,8 +1,7 @@
-let a = 2;
+let a = 12.123 💩;
 
-while 
-# This here is a comment
-	a < 10 {
+// This here is a comment
+while a < 10 {
  a = a + 1;
 };
 

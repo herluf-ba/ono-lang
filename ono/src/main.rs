@@ -1,4 +1,6 @@
+use anyhow::Result;
 use clap::Parser;
+use common::error::SyntaxError;
 use std::{
     fs::File,
     io::{BufReader, Read},
@@ -12,7 +14,7 @@ struct Args {
     file: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
     let file = match File::open(&args.file) {
         Ok(f) => f,
@@ -25,24 +27,18 @@ fn main() {
         panic!("could not read {:?}", args.file);
     }
 
-    match onoi::run(&code) {
-        Err(mut errors) => {
-            let lines = code.split("\n").collect::<Vec<_>>();
-            for error in errors.iter_mut() {
-                let line = lines
-                    .get(error.token.position.line)
-                    .expect("error line should refer to a line in src code");
-                error.with_src_line(line);
-                error.with_filename(args.file.to_str().unwrap());
-                eprintln!("{}\n", error);
+    let tokens = syntax::Scanner::new(&code)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>();
+    match tokens {
+        Err(err) => {
+            let filename = args.file.file_name().map(|f| f.to_str());
+            if let Some(Some(filename)) = filename {
+                common::error::report_errors::<SyntaxError>(filename, &code, vec![err])?;
             }
-
-            println!(
-                "program exited with {} {}",
-                errors.len(),
-                if errors.len() > 1 { "errors" } else { "error" }
-            );
         }
-        Ok(val) => println!("{}", val)
+        Ok(tokens) => println!("{:?}", tokens),
     };
+
+    Ok(())
 }

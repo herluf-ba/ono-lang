@@ -1,9 +1,0 @@
-let a = "foo";
-let b = 1;
-let c = a + b;
---ERR--
-type error: cannot 'string + number'
--> end-to-end-tests/type-errors/T001.ono-test 3:11
-3 | let c = a + b;
-              ^
---OUT--

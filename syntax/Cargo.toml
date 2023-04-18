@@ -1,10 +1,9 @@
 [package]
-name = "ono"
+name = "syntax"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-syntax = { path = "../syntax" }
 common = { path = "../common" }
-clap.workspace = true
-anyhow.workspace = true
+logos.workspace = true
+
