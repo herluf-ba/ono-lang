@@ -64,7 +64,7 @@ impl VirtualMachine {
             match self.next_instruction() {
                 OpCode::RETURN => {
                     return self.pop();
-                },
+                }
                 OpCode::ADD => {
                     let (b, a) = (self.pop()?, self.pop()?);
                     self.push(a + b)?;

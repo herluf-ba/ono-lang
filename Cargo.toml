@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 unicode-segmentation = "1.7.x"
 colored = "2.x.x"
+clap = { version = "4.2.2", features = ["derive"] }
 
 [dev-dependencies]
 pretty_assertions = "1.3.x"
