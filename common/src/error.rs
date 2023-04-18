@@ -9,32 +9,6 @@ use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 // and that therefore `()` can be used as a FileId for codespan_reporting
 type FileId = ();
 
-/// An error item spanning some source code
-#[derive(Debug)]
-pub struct Item {
-    span: Range<usize>,
-    message: Option<String>,
-}
-
-impl Item {
-    pub fn new(span: Range<usize>, message: Option<impl Into<String>>) -> Self {
-        Self {
-            span,
-            message: message.map(|message| message.into()),
-        }
-    }
-}
-
-impl Into<Label<FileId>> for &Item {
-    fn into(self) -> Label<FileId> {
-        let mut label = Label::primary((), self.span.clone());
-        if let Some(message) = &self.message {
-            label = label.with_message(message);
-        }
-        label
-    }
-}
-
 /// A common trait for all ono errors
 pub trait Report {
     fn report(&self) -> Diagnostic<FileId>;
