@@ -19,7 +19,7 @@ pub struct Item {
 impl Item {
     pub fn new(span: Range<usize>, message: Option<impl Into<String>>) -> Self {
         Self {
-            span, 
+            span,
             message: message.map(|message| message.into()),
         }
     }
@@ -44,6 +44,7 @@ pub trait Report {
 pub enum SyntaxError {
     UnexpectedSymbol { symbol: Range<usize> },
     BadNumberLiteral { literal: Range<usize> },
+    UnterminatedString { opening: Range<usize> },
 }
 
 impl Default for SyntaxError {
@@ -63,6 +64,12 @@ impl Report for SyntaxError {
                 .with_code("S002")
                 .with_message("cannot parse number literal")
                 .with_labels(vec![Label::primary((), literal.clone())]),
+            SyntaxError::UnterminatedString { opening } => Diagnostic::error()
+                .with_code("S003")
+                .with_message("unterminated string")
+                .with_labels(vec![
+                    Label::primary((), opening.clone()).with_message("starts here")
+                ]),
         }
     }
 }

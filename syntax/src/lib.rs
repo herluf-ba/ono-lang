@@ -137,9 +137,18 @@ impl<'a> Iterator for Scanner<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
             None => None,
-            Some(Err(_)) => Some(Err(SyntaxError::UnexpectedSymbol {
-                symbol: self.inner.span(),
-            })),
+            Some(Err(_)) => {
+                if self.inner.slice().starts_with('"') {
+                    let start = self.inner.span().start;
+                    return Some(Err(SyntaxError::UnterminatedString {
+                        opening: start..start + 1,
+                    }));
+                }
+
+                Some(Err(SyntaxError::UnexpectedSymbol {
+                    symbol: self.inner.span(),
+                }))
+            }
             Some(t) => Some(t),
         }
     }
